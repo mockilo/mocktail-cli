@@ -26,8 +26,8 @@ Generate mock records with relations, custom faker data, and export formats for 
 ## Installation
 
 ```bash
-npm install -g mocktail
+npm install -g mocktail-cli
 
 ```help
 
-npx mocktail generate --help
+npx mocktail-cli generate --help
