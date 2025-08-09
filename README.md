@@ -4,7 +4,7 @@
 
 # Mocktail
 
-[![npm version](https://img.shields.io/npm/v/mocktail.svg)](https://www.npmjs.com/package/mocktail)
+[![npm version](https://img.shields.io/npm/v/mocktail-cli.svg)](https://www.npmjs.com/package/mocktail-cli)
 
 Mocktail is a **Prisma-aware mock data generator CLI** that creates realistic mock data based on your Prisma schema.  
 Generate mock records with relations, custom faker data, and export formats for easy development, testing, and seeding.
