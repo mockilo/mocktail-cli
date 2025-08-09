@@ -1,4 +1,4 @@
-# mocktail
+# mocktail-cli
 
 **Note:** .env file was sanitized in this package release. Use .env.example to set DATABASE_URL before running anything that needs a DB.
 
