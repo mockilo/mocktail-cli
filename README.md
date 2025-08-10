@@ -30,4 +30,4 @@ npm install -g mocktail-cli
 
 ```help
 
-npx mocktail generate --help
+npx mocktail-cli generate --help
