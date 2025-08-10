@@ -1,5 +1,5 @@
 {
-  "name": "mocktail-cli",
+  "name": "@mock-verse/mocktail-cli",
   "version": "1.0.0",
   "description": "**Craft your data cocktail — realistic mock data, shaken not stirred.**",
   "main": "bin/mocktail-cli.js",
