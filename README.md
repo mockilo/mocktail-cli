@@ -2,7 +2,7 @@
 
 **Note:** .env file was sanitized in this package release. Use .env.example to set DATABASE_URL before running anything that needs a DB.
 
-# Mocktail
+# Mocktail-cli
 
 [![npm version](https://img.shields.io/npm/v/mocktail-cli.svg)](https://www.npmjs.com/package/mocktail-cli)
 
@@ -30,4 +30,4 @@ npm install -g mocktail-cli
 
 ```help
 
-npx mocktail-cli generate --help
+npx mocktail generate --help
