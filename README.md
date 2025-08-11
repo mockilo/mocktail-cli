@@ -146,7 +146,7 @@ Mocktail‑CLI is MIT licensed. Issues and discussions welcome on the GitHub rep
 
 ---
 
-* ☕🍹  Welcome to Mocktail CLI  🍹☕ *
+* ☕🍹  Welcome to Mocktail CLI  🍹☕ 
 
 Order up! Your personal code barista is here.
 Serving fresh, Prisma-aware mock data, shaken not stirred.
