@@ -1,16 +1,16 @@
 {
-  "name": "mocktail-cli",
-  "version": "1.0.0",
+  "name": "@mock-verse/mocktail-cli",
+  "version": "1.1.0",
   "description": "**Craft your data cocktail — realistic mock data, shaken not stirred.**",
   "main": "bin/mocktail-cli.js",
   "type": "commonjs",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "echo \"No tests yet\" && exit 0",
     "start": "node ./bin/mocktail-cli.js",
     "lint": "echo \"No lint configured\""
   },
   "keywords": [],
-  "author": "",
+  "author": "kilopal",
   "license": "ISC",
   "dependencies": {
     "@faker-js/faker": "^9.9.0",
@@ -21,7 +21,7 @@
     "ora": "^8.2.0"
   },
   "bin": {
-    "mocktail-cli": "./bin/mocktail-cli.js"
+    "mocktail-cli": "bin/mocktail-cli.js"
   },
   "engines": {
     "node": ">=18.18.0"
@@ -30,5 +30,13 @@
     "@eslint/js": "^9.33.0",
     "eslint": "^9.33.0",
     "globals": "^16.3.0"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mock-verse/mocktail-cli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mock-verse/mocktail-cli/issues"
+  },
+  "homepage": "https://github.com/mock-verse/mocktail-cli#readme"
 }

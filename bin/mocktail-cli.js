@@ -1,12 +1,17 @@
 #!/usr/bin/env node
+//
 
 const { Command } = require("commander");
 const path = require("path");
 const fs = require("fs");
+const os = require("os");
 const ora = require("ora").default;
+const chalk = require("chalk");
 const { writeMockDataToFile } = require("../src/utils/writeMockDataToFile");
 const { parsePrismaSchema } = require("../src/schema-parsers/prismaParser");
 const { generateMockData } = require("../src/generators/generateMockData");
+// Logo
+const printMocktailLogo = require('../src/printMocktailLogo');
 
 let formatToSQL = null;
 try {
@@ -18,22 +23,61 @@ try {
   loadMockConfig = require("../src/utils/loadMockConfig").default;
 } catch {}
 
+const SEEN_FILE = path.join(os.homedir(), ".mocktail-cli-seen");
+
+async function shouldShowLogo(forceLogo, noLogo, noSubcommand) {
+  if (noLogo) return false;
+  if (forceLogo) return true;
+  if (!noSubcommand) return false;
+
+  try {
+    if (fs.existsSync(SEEN_FILE)) {
+      return false; // Already seen, don't show again
+    } else {
+      fs.writeFileSync(SEEN_FILE, "seen", { encoding: "utf-8" });
+      return true; // Show logo first time and create seen file
+    }
+  } catch {
+    return true; // On error, show logo once
+  }
+}
+
 const program = new Command();
 
 program
   .name("mocktail-cli")
   .description("Prisma-aware mock data generator")
-  .version("0.1.0");
+  .version("1.1.0")
+  .option('--no-logo', 'Suppress logo output globally')
+  .option('-q, --quiet', 'Suppress output except errors globally')
+  .option('--force-logo', 'Force show the logo animation even if shown before');
 
-// Append README info snippet to help output
-program.on("--help", () => {
-  console.log("");
-  console.log("For detailed documentation, run:");
-  console.log("  mocktail-cli docs");
-  console.log("Or visit https://github.com/mock-verse");
-  console.log("");
-});
+// Custom colorful main help output
+program.helpInformation = function () {
+  return `
+${chalk.hex('#00d8c9').bold('Usage:')} ${chalk.greenBright('mocktail-cli')} ${chalk.yellow('[options]')} ${chalk.yellow('[command]')}
 
+${chalk.cyan('Prisma-aware mock data generator')}
+
+${chalk.magenta('Options:')}
+  ${chalk.green('-V, --version')}       ${chalk.gray('output the version number')}
+  ${chalk.green('--no-logo')}           ${chalk.gray('Suppress logo output globally')}
+  ${chalk.green('-q, --quiet')}         ${chalk.gray('Suppress output except errors globally')}
+  ${chalk.green('--force-logo')}        ${chalk.gray('Force show the logo animation even if shown before')}
+  ${chalk.green('-h, --help')}          ${chalk.gray('display help for command')}
+
+${chalk.magenta('Commands:')}
+  ${chalk.yellow('generate [options]')}  ${chalk.gray('Generate mock data for a Prisma schema')}
+  ${chalk.yellow('docs')}                ${chalk.gray('Show full README.md documentation in terminal')}
+  ${chalk.yellow('help [command]')}      ${chalk.gray('display help for command')}
+
+${chalk.cyan('For detailed documentation, run:')}
+  ${chalk.green('mocktail-cli docs')}
+${chalk.cyan('Or visit')} ${chalk.underline.blue('https://github.com/mock-verse/mocktail-cli')}
+`;
+};
+
+// GENERATE command
 program
   .command("generate")
   .description("Generate mock data for a Prisma schema")
@@ -45,11 +89,12 @@ program
   .option("--mock-config <path>", "Path to mocktail-cli.config.js")
   .option("-d, --depth <number>", "Nested relation depth", "1")
   .option("--seed", "Insert mock data into DB")
-  .option("-q, --quiet", "Suppress output except errors")
   .action(async (opts) => {
     const spinner = ora({ spinner: "dots" });
-
     try {
+      const globalOpts = program.opts();
+      // NO LOGO here anymore!
+
       const schemaPath = path.resolve(process.cwd(), opts.schema);
       if (!fs.existsSync(schemaPath)) {
         console.error(`❌ Schema file not found: ${schemaPath}`);
@@ -97,17 +142,17 @@ program
         fs.mkdirSync(outputDir, { recursive: true });
       }
 
-      if (!opts.quiet) spinner.start("Generating base mock data for all models...");
+      if (!globalOpts.quiet) spinner.start("Generating base mock data for filtered models...");
       const generatedDataMap = {};
-      for (const model of allModels) {
+      for (const model of filteredModels) {
         const config = mockConfig?.[model.name];
         const data = generateMockData(model, { count, config });
         generatedDataMap[model.name] = data;
       }
-      if (!opts.quiet) spinner.succeed("Base mock data generated.");
+      if (!globalOpts.quiet) spinner.succeed("Base mock data generated.");
 
       for (const model of filteredModels) {
-        if (!opts.quiet) spinner.start(`📦 Generating data for model: ${model.name}`);
+        if (!globalOpts.quiet) spinner.start(`📦 Generating data for model: ${model.name}`);
 
         const buildRelationData = (currentModel, currentDepth, visited = new Set()) => {
           if (currentDepth > depth) return {};
@@ -137,9 +182,9 @@ program
 
         if (outputDir) {
           const written = writeMockDataToFile(model.name, data, outputDir, opts.format, formatToSQL);
-          if (!opts.quiet) console.log(`✅ Saved data for ${model.name} → ${written}`);
+          if (!globalOpts.quiet) console.log(`✅ Saved data for ${model.name} → ${written}`);
         } else {
-          if (!opts.quiet) console.dir(data, { depth: null });
+          if (!globalOpts.quiet) console.dir(data, { depth: null });
         }
 
         if (opts.seed) {
@@ -149,18 +194,18 @@ program
 
           if (modelClient?.createMany) {
             await modelClient.createMany({ data });
-            if (!opts.quiet) console.log(`🌱 Seeded ${data.length} records into ${model.name}`);
-          } else if (!opts.quiet) {
+            if (!globalOpts.quiet) console.log(`🌱 Seeded ${data.length} records into ${model.name}`);
+          } else if (!globalOpts.quiet) {
             console.warn(`⚠️ Skipped seeding ${model.name} (no createMany available)`);
           }
 
           await prisma.$disconnect();
         }
 
-        if (!opts.quiet) spinner.succeed(`Finished processing model: ${model.name}`);
+        if (!globalOpts.quiet) spinner.succeed(`Finished processing model: ${model.name}`);
       }
 
-      if (!opts.quiet) console.log("\n✅ Mock data generation completed.");
+      if (!globalOpts.quiet) console.log("\n✅ Mock data generation completed.");
       process.exit(0);
 
     } catch (error) {
@@ -169,6 +214,28 @@ program
       process.exit(1);
     }
   });
+
+// Override generate command help with colorful custom output including --force-logo
+const generateCmd = program.commands.find(cmd => cmd.name() === "generate");
+generateCmd.helpInformation = function () {
+  return `
+${chalk.hex('#00d8c9').bold('Usage:')} ${chalk.greenBright('mocktail-cli generate')} ${chalk.yellow('[options]')}
+
+${chalk.cyan('Generate mock data for a Prisma schema')}
+
+${chalk.magenta('Options:')}
+  ${chalk.green('-c, --count <number>')}   ${chalk.gray(`Number of records per model (default: "${this._optionValues.count || '5'}")`)}
+  ${chalk.green('-o, --out <directory>')}  ${chalk.gray('Output directory')}
+  ${chalk.green('-f, --format <type>')}    ${chalk.gray(`Output format: json, sql, ts, csv (default: "${this._optionValues.format || 'json'}")`)}
+  ${chalk.green('-s, --schema <path>')}    ${chalk.gray(`Prisma schema path (default: "${this._optionValues.schema || './prisma/schema.prisma'}")`)}
+  ${chalk.green('-m, --models <models>')}  ${chalk.gray('Comma-separated list of models (optional)')}
+  ${chalk.green('--mock-config <path>')}   ${chalk.gray('Path to mocktail-cli.config.js')}
+  ${chalk.green('-d, --depth <number>')}   ${chalk.gray(`Nested relation depth (default: "${this._optionValues.depth || '1'}")`)}
+  ${chalk.green('--seed')}                 ${chalk.gray('Insert mock data into DB')}
+  ${chalk.green('--force-logo')}           ${chalk.gray('Force show the logo animation even if shown before')}
+  ${chalk.green('-h, --help')}             ${chalk.gray('display help for command')}
+`;
+};
 
 // Show README content in terminal
 program
@@ -184,4 +251,29 @@ program
     console.log(readmeContent);
   });
 
-program.parse(process.argv);
+// === Here is the key fix: print logo ONLY here once, before parsing commands ===
+(async () => {
+  // Parse global options manually, since program.opts() isn't ready yet
+  const args = process.argv.slice(2);
+
+  const noLogo = args.includes('--no-logo') || args.includes('-q') || args.includes('--quiet');
+  const forceLogo = args.includes('--force-logo');
+
+  // Detect subcommand presence
+  const knownCommands = ['generate', 'docs', 'help'];
+  const firstArg = args[0];
+  const isSubcommand = firstArg && knownCommands.includes(firstArg);
+
+  // Show logo only if no subcommand is given (just running `mocktail-cli` alone)
+  // OR if running help/version commands
+  // OR if forced by --force-logo
+  // Otherwise don't show logo
+  const noSubcommand = !isSubcommand && (args.length === 0 || ['-h', '--help', '-V', '--version'].some(cmd => args.includes(cmd)));
+
+  if (await shouldShowLogo(forceLogo, noLogo, noSubcommand)) {
+    await printMocktailLogo();
+  }
+
+  // Now parse commands normally, command actions will NOT print logo again
+  program.parse(process.argv);
+})();
