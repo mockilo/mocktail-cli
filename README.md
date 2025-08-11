@@ -1,12 +1,8 @@
-# mocktail-cli
+# Mocktail-CLI
 
-**Note:** .env file was sanitized in this package release. Use .env.example to set DATABASE_URL before running anything that needs a DB.
-
-# Mocktail-cli
+**Note:** `.env` file was sanitized in this package release. Use `.env.example` to set `DATABASE_URL` before running anything that needs a DB.
 
 [![npm version](https://img.shields.io/npm/v/mocktail-cli.svg)](https://www.npmjs.com/package/mocktail-cli)
-
-# Mocktail‑CLI
 
 > **Mocktail‑CLI** — The schema‑aware mock data generator for developers. Generate realistic, relation‑aware mock data from your Prisma schema directly from the command line.
 
@@ -151,4 +147,3 @@ Mocktail‑CLI is MIT licensed. Issues and discussions welcome on the GitHub rep
 ---
 
 *Made with ☕ and ❤️ for developers who want instant, realistic mock data.*
-
