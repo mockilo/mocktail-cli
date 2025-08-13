@@ -142,8 +142,9 @@ We welcome PRs, bug reports, and feature ideas.
 
 ## License & Contact
 
-**License Update:** From v1.2.0-beta.0, Mocktail-CLI is licensed under BSL-1.1. Older versions (v1.1.x and below) remain MIT.
 
+**License Update:**
+ From v1.1.1-beta.0, Mocktail-CLI is licensed under BSL-1.1. Older versions (<=1.1.0-beta.3) remain MIT.
 
 ---
 
