@@ -1,28 +1,42 @@
 // src/utils/formatToSQL.js
-// Safer SQL formatter for generating simple INSERT statements.
-// Note: For production seeding prefer parameterized queries or use Prisma client directly.
+
 function escapeSqlValue(val) {
   if (val === null || val === undefined) return 'NULL';
   if (typeof val === 'number') return String(val);
   if (typeof val === 'boolean') return val ? 'TRUE' : 'FALSE';
   if (val instanceof Date) return `'${val.toISOString()}'`;
-  // Convert objects/arrays to JSON
   if (typeof val === 'object') return `'${JSON.stringify(val).replace(/'/g, "''")}'`;
-  // Escape single quotes by doubling them
   return `'${String(val).replace(/'/g, "''")}'`;
 }
 
-function formatToSQL(modelName, records) {
+/**
+ * Formats records into an SQL INSERT statement.
+ *
+ * @param {string} modelName - Table name
+ * @param {Array<Object>} records - Array of record objects
+ * @param {Array<Object>} [fieldsMeta] - Optional Prisma model.fields array for filtering relations
+ */
+function formatToSQL(modelName, records, fieldsMeta = []) {
   if (!Array.isArray(records) || records.length === 0) return '';
 
-  const columns = Object.keys(records[0]);
+  // If we have model field metadata, filter out relation fields
+  let allowedColumns;
+  if (fieldsMeta.length > 0) {
+    allowedColumns = fieldsMeta
+      .filter(f => !f.isRelation) // skip relation fields entirely
+      .map(f => f.name);
+  } else {
+    // fallback: include all keys (older behavior)
+    allowedColumns = Object.keys(records[0]);
+  }
+
   const rows = records
     .map((record) =>
-      `(${columns.map((col) => escapeSqlValue(record[col])).join(', ')})`
+      `(${allowedColumns.map((col) => escapeSqlValue(record[col])).join(', ')})`
     )
     .join(',\n');
 
-  return `INSERT INTO ${modelName} (${columns.join(', ')}) VALUES\n${rows};`;
+  return `INSERT INTO "${modelName}" (${allowedColumns.join(', ')}) VALUES\n${rows};`;
 }
 
 module.exports = formatToSQL;
