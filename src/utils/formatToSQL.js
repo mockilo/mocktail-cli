@@ -1,5 +1,3 @@
-// src/utils/formatToSQL.js
-
 function escapeSqlValue(val) {
   if (val === null || val === undefined) return 'NULL';
   if (typeof val === 'number') return String(val);
@@ -19,24 +17,46 @@ function escapeSqlValue(val) {
 function formatToSQL(modelName, records, fieldsMeta = []) {
   if (!Array.isArray(records) || records.length === 0) return '';
 
-  // If we have model field metadata, filter out relation fields
+  // Filter out relation fields if fieldsMeta provided
   let allowedColumns;
   if (fieldsMeta.length > 0) {
     allowedColumns = fieldsMeta
-      .filter(f => !f.isRelation) // skip relation fields entirely
+      .filter(f => !f.isRelation)
       .map(f => f.name);
   } else {
-    // fallback: include all keys (older behavior)
     allowedColumns = Object.keys(records[0]);
   }
 
   const rows = records
-    .map((record) =>
-      `(${allowedColumns.map((col) => escapeSqlValue(record[col])).join(', ')})`
+    .map(record =>
+      `(${allowedColumns.map(col => escapeSqlValue(record[col])).join(', ')})`
     )
     .join(',\n');
 
   return `INSERT INTO "${modelName}" (${allowedColumns.join(', ')}) VALUES\n${rows};`;
 }
 
-module.exports = formatToSQL;
+/**
+ * Formats many-to-many join table inserts.
+ *
+ * @param {string} joinTableName - join table name
+ * @param {Array<Object>} records - array of objects with keys 'A' and 'B'
+ */
+function formatJoinTableSQL(joinTableName, records) {
+  if (!Array.isArray(records) || records.length === 0) return '';
+
+  const columns = Object.keys(records[0]); // usually ['A', 'B']
+
+  const rows = records
+    .map(record =>
+      `(${columns.map(col => escapeSqlValue(record[col])).join(', ')})`
+    )
+    .join(',\n');
+
+  return `INSERT INTO "${joinTableName}" (${columns.join(', ')}) VALUES\n${rows};`;
+}
+
+module.exports = {
+  formatToSQL,
+  formatJoinTableSQL,
+};

@@ -2,6 +2,7 @@ const { generateField } = require('./baseGenerators');
 const { faker } = require('@faker-js/faker');
 const { customAlphabet } = require('nanoid');
 
+
 const nanoid = customAlphabet(
   '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz',
   16
@@ -34,31 +35,28 @@ function generateIdForType(type, seq) {
   return nanoid();
 }
 
-// Format values for SQL output
-function safeValue(value, { sqlMode = false } = {}) {
-  if (!sqlMode) return value; // keep raw for JSON output
-
-  if (value === null || value === undefined) return 'NULL';
-  if (typeof value === 'number') return value;
-  if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
-  if (typeof value === 'string') return `'${value.replace(/'/g, "''")}'`;
-  if (Array.isArray(value)) {
-    // Store arrays as JSON string in SQL
-    return `'${JSON.stringify(value).replace(/'/g, "''")}'`;
-  }
-  // Fallback to JSON stringify for objects
-  return `'${JSON.stringify(value).replace(/'/g, "''")}'`;
+/**
+ * Heuristic to get join table name for many-to-many relation
+ * You might want to customize this based on your DB naming conventions.
+ */
+function getJoinTableName(modelName, relationName) {
+  // Example: Prisma often names join tables like _ModelNameToRelationName
+  return `_${modelName}To${capitalizeFirst(relationName)}`;
+}
+function capitalizeFirst(str) {
+  return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
 /**
  * Generate mock data for a single model descriptor.
  *
- * model: { name: 'User', fields: [ { name, type, isScalar, isRelation, isArray, isId, relationFromFields } ] }
- * options:
- *   count: number
- *   customFields: { fieldName: () => value }
- *   relationData: { relationFieldName: [ relatedRecord | id | primitive ] }
- *   config: { sqlMode?: boolean }
+ * Returns:
+ *  {
+ *    records: [...],           // main table records
+ *    joinTableRecords: {       // many-to-many join table data, e.g. { '_PostToCategory': [ {A: postId, B: categoryId}, ... ] }
+ *      [joinTableName]: Array<{A: string, B: string}>
+ *    }
+ *  }
  */
 function generateMockData(model, options = {}) {
   const {
@@ -80,13 +78,18 @@ function generateMockData(model, options = {}) {
     model.fields.find(f => f.isId) || model.fields.find(f => f.name === 'id');
 
   const records = [];
+
+  // For collecting many-to-many join table records
+  const joinTableRecords = {};
+
   for (let i = 0; i < count; i++) {
     const rec = {};
 
     for (const field of model.fields) {
-      // Skip relation fields entirely in SQL mode
+      // Skip relation fields entirely in SQL mode (we handle many-to-many later)
       if (field.isRelation) {
-        rec[field.name] = field.isArray ? [] : null; // keep for JSON
+        // For JSON mode keep arrays/nulls, for SQL mode just skip
+        rec[field.name] = field.isArray ? [] : null;
         continue;
       }
 
@@ -96,34 +99,33 @@ function generateMockData(model, options = {}) {
           typeof customFields[field.name] === 'function'
             ? customFields[field.name](i)
             : customFields[field.name];
-        rec[field.name] = safeValue(val, { sqlMode });
+        rec[field.name] = sqlMode ? safeValue(val, { sqlMode }) : val;
         continue;
       }
 
       // ID generation
       if (field.isId) {
-        rec[field.name] = safeValue(generateIdForType(field.type, i), {
-          sqlMode
-        });
+        const idVal = generateIdForType(field.type, i);
+        rec[field.name] = sqlMode ? safeValue(idVal, { sqlMode }) : idVal;
         continue;
       }
 
       // Generate scalars
       if (field.isScalar) {
         const v = generateField(field.type);
-        rec[field.name] = safeValue(v, { sqlMode });
+        rec[field.name] = sqlMode ? safeValue(v, { sqlMode }) : v;
         continue;
       }
 
       // Fallback
-      rec[field.name] = safeValue(null, { sqlMode });
+      rec[field.name] = sqlMode ? safeValue(null, { sqlMode }) : null;
     }
 
     records.push(rec);
   }
 
-  // Inject relations for JSON mode (never for SQL mode)
   if (!sqlMode) {
+    // JSON mode: inject relations (existing behavior)
     for (const rec of records) {
       for (const field of model.fields) {
         if (!field.isRelation) continue;
@@ -148,9 +150,51 @@ function generateMockData(model, options = {}) {
         }
       }
     }
+  } else {
+    // SQL mode: generate many-to-many join table records
+    for (const field of model.fields) {
+      if (!field.isRelation || !field.isArray) continue; // only many-to-many
+
+      const joinTableName = getJoinTableName(model.name, field.name);
+      joinTableRecords[joinTableName] = joinTableRecords[joinTableName] || [];
+
+      for (const rec of records) {
+        const relatedIds = relationIds[field.name] || [];
+        const relationCount = Math.floor(Math.random() * 3); // 0 to 2 relations per record
+
+        for (let i = 0; i < relationCount; i++) {
+          const relatedId = chooseRandom(relatedIds);
+          if (!relatedId) continue;
+
+          // A = this model's id, B = related model's id
+          // IDs are raw strings, but can be wrapped in quotes later by SQL formatter
+          joinTableRecords[joinTableName].push({
+            A: rec[idField.name],
+            B: relatedId,
+          });
+        }
+      }
+    }
   }
 
-  return records;
+  return {
+    records,
+    joinTableRecords,
+  };
+}
+
+// Helper to format safe SQL values (like before)
+function safeValue(value, { sqlMode = false } = {}) {
+  if (!sqlMode) return value;
+
+  if (value === null || value === undefined) return 'NULL';
+  if (typeof value === 'number') return value;
+  if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
+  if (typeof value === 'string') return value.replace(/'/g, "''");
+  if (Array.isArray(value)) {
+    return `'${JSON.stringify(value).replace(/'/g, "''")}'`;
+  }
+  return `'${JSON.stringify(value).replace(/'/g, "''")}'`;
 }
 
 module.exports = { generateMockData };
