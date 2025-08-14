@@ -254,34 +254,41 @@ program
 
         const relationData = buildRelationData(model, 1);
         const config = mockConfig?.[model.name];
-        // If SQL format requested, generate in SQL mode to also collect join tables
-        const sqlMode = opts.format === 'sql';
-        const genResult = generateMockData(model, { count, relationData, config: { ...config, sqlMode } });
-        const records = genResult.records;
-        // Store finalized records for this model so downstream models pick up correct IDs
-        generatedDataMap[model.name] = records;
+        const isSqlOutput = opts.format === 'sql';
+
+        // Always generate raw records for seeding and relation resolution
+        const rawGen = generateMockData(model, { count, relationData, config: { ...config, sqlMode: false } });
+        const rawRecords = rawGen.records;
+        // Store raw records so downstream relations use plain values (not SQL-safe strings)
+        generatedDataMap[model.name] = rawRecords;
 
         if (outputDir) {
-          // Write model data
-          const written = writeMockDataToFile(model.name, records, outputDir, opts.format, formatToSQL);
-          if (!globalOpts.quiet) console.log(`✅ Saved data for ${model.name} → ${written}`);
-          // If SQL mode, also write join table inserts if any were generated for this model
-          if (sqlMode && genResult.joinTableRecords && formatJoinTableSQL) {
-            for (const [joinTableName, joinRows] of Object.entries(genResult.joinTableRecords)) {
-              if (!Array.isArray(joinRows) || joinRows.length === 0) continue;
-              const joinSql = formatJoinTableSQL(joinTableName, joinRows);
-              const joinPath = path.join(outputDir, `${joinTableName}.sql`);
-              fs.writeFileSync(joinPath, joinSql, 'utf8');
-              if (!globalOpts.quiet) console.log(`  ↳ Wrote join table inserts → ${joinPath}`);
+          if (isSqlOutput) {
+            // Generate SQL-safe values for file output
+            const sqlGen = generateMockData(model, { count, relationData, config: { ...config, sqlMode: true } });
+            const sqlRecords = sqlGen.records;
+            const written = writeMockDataToFile(model.name, sqlRecords, outputDir, opts.format, formatToSQL);
+            if (!globalOpts.quiet) console.log(`✅ Saved data for ${model.name} → ${written}`);
+            if (sqlGen.joinTableRecords && formatJoinTableSQL) {
+              for (const [joinTableName, joinRows] of Object.entries(sqlGen.joinTableRecords)) {
+                if (!Array.isArray(joinRows) || joinRows.length === 0) continue;
+                const joinSql = formatJoinTableSQL(joinTableName, joinRows);
+                const joinPath = path.join(outputDir, `${joinTableName}.sql`);
+                fs.writeFileSync(joinPath, joinSql, 'utf8');
+                if (!globalOpts.quiet) console.log(`  ↳ Wrote join table inserts → ${joinPath}`);
+              }
             }
+          } else {
+            const written = writeMockDataToFile(model.name, rawRecords, outputDir, opts.format, formatToSQL);
+            if (!globalOpts.quiet) console.log(`✅ Saved data for ${model.name} → ${written}`);
           }
         } else {
-          if (!globalOpts.quiet) console.dir(records, { depth: null });
+          if (!globalOpts.quiet) console.dir(rawRecords, { depth: null });
         }
 
         if (opts.seed) {
           const scalarFieldNames = new Set(model.fields.filter(f => f.isScalar || f.isId).map(f => f.name));
-          const cleanRecords = records.map(rec => {
+          const cleanRecords = rawRecords.map(rec => {
             const out = {};
             for (const key of Object.keys(rec)) {
               if (scalarFieldNames.has(key)) out[key] = rec[key];
