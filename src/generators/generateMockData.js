@@ -82,16 +82,17 @@ function generateMockData(model, options = {}) {
   // For collecting many-to-many join table records
   const joinTableRecords = {};
 
-  for (let i = 0; i < count; i++) {
+    for (let i = 0; i < count; i++) {
     const rec = {};
 
     for (const field of model.fields) {
-      // Skip relation fields entirely in SQL mode (we handle many-to-many later)
-      if (field.isRelation) {
-        // For JSON mode keep arrays/nulls, for SQL mode just skip
-        rec[field.name] = field.isArray ? [] : null;
-        continue;
-      }
+        // Skip relation fields entirely in SQL mode (we handle many-to-many later)
+        if (field.isRelation) {
+          if (!sqlMode) {
+            rec[field.name] = field.isArray ? [] : null;
+          }
+          continue;
+        }
 
       // Custom field override
       if (customFields && customFields[field.name]) {
@@ -125,7 +126,34 @@ function generateMockData(model, options = {}) {
   }
 
   if (!sqlMode) {
-    // JSON mode: inject relations (existing behavior)
+    // JSON mode: inject relations with respect to unique FK constraints
+    // Build pools for unique foreign key fields to avoid duplicates
+    const shuffle = (arr) => {
+      const a = arr.slice();
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    };
+
+    const uniqueFkPools = new Map(); // fkFieldName -> array of ids to consume
+
+    for (const field of model.fields) {
+      if (!field.isRelation) continue;
+      const relName = field.name;
+      const ids = relationIds[relName] || [];
+
+      if (field.relationFromFields && field.relationFromFields.length > 0) {
+        for (const fk of field.relationFromFields) {
+          const fkField = model.fields.find(f => f.name === fk);
+          if (fkField?.isUnique) {
+            uniqueFkPools.set(fk, shuffle(ids));
+          }
+        }
+      }
+    }
+
     for (const rec of records) {
       for (const field of model.fields) {
         if (!field.isRelation) continue;
@@ -135,7 +163,14 @@ function generateMockData(model, options = {}) {
 
         if (field.relationFromFields && field.relationFromFields.length > 0) {
           for (const fk of field.relationFromFields) {
-            rec[fk] = chooseRandom(ids);
+            const fkField = model.fields.find(f => f.name === fk);
+            if (fkField?.isUnique) {
+              const pool = uniqueFkPools.get(fk) || [];
+              rec[fk] = pool.length > 0 ? pool.pop() : null;
+              uniqueFkPools.set(fk, pool);
+            } else {
+              rec[fk] = chooseRandom(ids);
+            }
           }
           continue;
         }

@@ -39,6 +39,18 @@ function parsePrismaSchema(schemaPath) {
 
     const lines = body.split('\n').map(l => l.trim()).filter(l => !!l && !l.startsWith('//') && !l.startsWith('/*'));
 
+    // First, capture model-level unique constraints like @@unique([userId]) or @@unique([a, b])
+    const modelLevelUniques = [];
+    for (const line of lines) {
+      if (line.startsWith('@@unique')) {
+        const arrMatch = line.match(/@@unique\s*\(\s*\[([^\]]+)\]/);
+        if (arrMatch) {
+          const fields = arrMatch[1].split(',').map(s => s.trim());
+          modelLevelUniques.push(fields);
+        }
+      }
+    }
+
     const fields = [];
     for (const line of lines) {
       // skip full-line attributes or block endings
@@ -81,9 +93,19 @@ function parsePrismaSchema(schemaPath) {
       fields.push(field);
     }
 
+    // Mark single-field model-level uniques onto the corresponding field entries
+    for (const uniqueGroup of modelLevelUniques) {
+      if (uniqueGroup.length === 1) {
+        const fName = uniqueGroup[0];
+        const field = fields.find(f => f.name === fName);
+        if (field) field.isUnique = true;
+      }
+    }
+
     models[modelName] = {
       name: modelName,
-      fields
+      fields,
+      modelLevelUniques,
     };
   }
 
