@@ -7,6 +7,7 @@ const fs = require("fs");
 const os = require("os");
 const ora = require("ora").default;
 const chalk = require("chalk");
+const { spawn } = require("child_process");
 const { writeMockDataToFile } = require("../src/utils/writeMockDataToFile");
 const { parsePrismaSchema } = require("../src/schema-parsers/prismaParser");
 const { generateMockData } = require("../src/generators/generateMockData");
@@ -14,8 +15,11 @@ const { generateMockData } = require("../src/generators/generateMockData");
 const printMocktailLogo = require('../src/printMocktailLogo');
 
 let formatToSQL = null;
+let formatJoinTableSQL = null;
 try {
-  formatToSQL = require("../src/utils/formatToSQL").default;
+  const sqlFmt = require("../src/utils/formatToSQL");
+  formatToSQL = sqlFmt.formatToSQL;
+  formatJoinTableSQL = sqlFmt.formatJoinTableSQL;
 } catch {}
 
 let loadMockConfig = null;
@@ -24,6 +28,25 @@ try {
 } catch {}
 
 const SEEN_FILE = path.join(os.homedir(), ".mocktail-cli-seen");
+
+function loadEnvFile(envPath) {
+  try {
+    if (!fs.existsSync(envPath)) return;
+    const contents = fs.readFileSync(envPath, 'utf8');
+    for (const line of contents.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const idx = trimmed.indexOf('=');
+      if (idx === -1) continue;
+      const key = trimmed.slice(0, idx).trim();
+      let value = trimmed.slice(idx + 1).trim();
+      if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+        value = value.slice(1, -1);
+      }
+      if (!(key in process.env)) process.env[key] = value;
+    }
+  } catch {}
+}
 
 async function shouldShowLogo(forceLogo, noLogo, noSubcommand) {
   if (noLogo) return false;
@@ -96,6 +119,10 @@ program
       // NO LOGO here anymore!
 
       const schemaPath = path.resolve(process.cwd(), opts.schema);
+
+      // Load .env from the Prisma project root if present, without extra deps
+      const envPath = path.join(path.dirname(schemaPath), '..', '.env');
+      loadEnvFile(envPath);
       if (!fs.existsSync(schemaPath)) {
         console.error(`❌ Schema file not found: ${schemaPath}`);
         process.exit(1);
@@ -142,16 +169,65 @@ program
         fs.mkdirSync(outputDir, { recursive: true });
       }
 
-      if (!globalOpts.quiet) spinner.start("Generating base mock data for filtered models...");
+      if (!globalOpts.quiet) spinner.start("Preparing generation order and state...");
       const generatedDataMap = {};
-      for (const model of filteredModels) {
-        const config = mockConfig?.[model.name];
-        const data = generateMockData(model, { count, config });
-        generatedDataMap[model.name] = data;
+      // Order models so that those without required inbound relations are seeded first
+      const modelNameToModel = Object.fromEntries(allModels.map(m => [m.name, m]));
+      function hasRequiredInboundRelations(m) {
+        for (const field of m.fields) {
+          // If this field is a required foreign key to another model, this model depends on others
+          if (field.relationFromFields && field.relationFromFields.length > 0) {
+            // If FK field is optional, we can seed without the parent existing
+            if (!field.isOptional) return true;
+          }
+        }
+        return false;
       }
-      if (!globalOpts.quiet) spinner.succeed("Base mock data generated.");
+      function topologicalOrder(models) {
+        const incoming = new Map();
+        const dependsOn = new Map();
+        for (const m of models) {
+          const deps = new Set();
+          for (const f of m.fields) {
+            if (f.relationFromFields && f.relationFromFields.length > 0) {
+              // This model references f.type
+              deps.add(f.type);
+            }
+          }
+          dependsOn.set(m.name, deps);
+          incoming.set(m.name, deps.size);
+        }
+        const queue = [];
+        for (const m of models) {
+          if (!hasRequiredInboundRelations(m)) queue.push(m.name);
+        }
+        const ordered = [];
+        const visited = new Set();
+        while (queue.length) {
+          const name = queue.shift();
+          if (visited.has(name)) continue;
+          visited.add(name);
+          ordered.push(modelNameToModel[name]);
+          for (const [n, deps] of dependsOn) {
+            if (deps.has(name)) {
+              deps.delete(name);
+              incoming.set(n, deps.size);
+              if (deps.size === 0) queue.push(n);
+            }
+          }
+        }
+        for (const m of models) {
+          if (!visited.has(m.name)) ordered.push(m);
+        }
+        return ordered;
+      }
 
-      for (const model of filteredModels) {
+      const seedingOrder = topologicalOrder(filteredModels);
+
+      const seedDataByModel = {};
+      if (!globalOpts.quiet) spinner.succeed("Order prepared. Starting data generation...");
+
+      for (const model of seedingOrder) {
         if (!globalOpts.quiet) spinner.start(`📦 Generating data for model: ${model.name}`);
 
         const buildRelationData = (currentModel, currentDepth, visited = new Set()) => {
@@ -178,35 +254,118 @@ program
 
         const relationData = buildRelationData(model, 1);
         const config = mockConfig?.[model.name];
-        const data = generateMockData(model, { count, relationData, config });
+        // If SQL format requested, generate in SQL mode to also collect join tables
+        const sqlMode = opts.format === 'sql';
+        const genResult = generateMockData(model, { count, relationData, config: { ...config, sqlMode } });
+        const records = genResult.records;
+        // Store finalized records for this model so downstream models pick up correct IDs
+        generatedDataMap[model.name] = records;
 
         if (outputDir) {
-          const written = writeMockDataToFile(model.name, data, outputDir, opts.format, formatToSQL);
+          // Write model data
+          const written = writeMockDataToFile(model.name, records, outputDir, opts.format, formatToSQL);
           if (!globalOpts.quiet) console.log(`✅ Saved data for ${model.name} → ${written}`);
+          // If SQL mode, also write join table inserts if any were generated for this model
+          if (sqlMode && genResult.joinTableRecords && formatJoinTableSQL) {
+            for (const [joinTableName, joinRows] of Object.entries(genResult.joinTableRecords)) {
+              if (!Array.isArray(joinRows) || joinRows.length === 0) continue;
+              const joinSql = formatJoinTableSQL(joinTableName, joinRows);
+              const joinPath = path.join(outputDir, `${joinTableName}.sql`);
+              fs.writeFileSync(joinPath, joinSql, 'utf8');
+              if (!globalOpts.quiet) console.log(`  ↳ Wrote join table inserts → ${joinPath}`);
+            }
+          }
         } else {
-          if (!globalOpts.quiet) console.dir(data, { depth: null });
+          if (!globalOpts.quiet) console.dir(records, { depth: null });
         }
 
         if (opts.seed) {
-          const { PrismaClient } = require("@prisma/client");
-          const prisma = new PrismaClient();
-          const modelClient = prisma[model.name.charAt(0).toLowerCase() + model.name.slice(1)];
-
-          if (modelClient?.createMany) {
-            await modelClient.createMany({ data });
-            if (!globalOpts.quiet) console.log(`🌱 Seeded ${data.length} records into ${model.name}`);
-          } else if (!globalOpts.quiet) {
-            console.warn(`⚠️ Skipped seeding ${model.name} (no createMany available)`);
-          }
-
-          await prisma.$disconnect();
+          const scalarFieldNames = new Set(model.fields.filter(f => f.isScalar || f.isId).map(f => f.name));
+          const cleanRecords = records.map(rec => {
+            const out = {};
+            for (const key of Object.keys(rec)) {
+              if (scalarFieldNames.has(key)) out[key] = rec[key];
+            }
+            return out;
+          });
+          seedDataByModel[model.name] = cleanRecords;
         }
 
         if (!globalOpts.quiet) spinner.succeed(`Finished processing model: ${model.name}`);
       }
 
-      if (!globalOpts.quiet) console.log("\n✅ Mock data generation completed.");
-      process.exit(0);
+      if (opts.seed) {
+        // Write seed JSON into the Prisma project
+        const prismaProject = path.resolve(path.dirname(schemaPath), "..");
+        const seedFile = path.join(prismaProject, "__mocktail_seed.json");
+        const payload = {
+          order: seedingOrder.map(m => m.name),
+          data: seedDataByModel,
+        };
+        fs.writeFileSync(seedFile, JSON.stringify(payload, null, 2), "utf8");
+        if (!globalOpts.quiet) console.log(`\n✅ Mock data JSON saved to: ${seedFile}`);
+
+        // Ensure Prisma Client is generated in the target project
+        const run = (cmd, args, cwd) => new Promise((resolve) => {
+          const child = spawn(cmd, args, { cwd, stdio: 'inherit', shell: true });
+          child.on('exit', (code) => resolve(code));
+        });
+
+        if (!globalOpts.quiet) console.log("\n🧩 Generating Prisma Client in target project...");
+        const genCode = await run('npx', ['--yes', 'prisma', 'generate'], prismaProject);
+        if (genCode !== 0) {
+          console.error('❌ Failed to generate Prisma Client in target project.');
+          process.exit(1);
+        }
+
+        // Create a temporary seed runner inside the target project to ensure correct module resolution
+        const runnerPath = path.join(prismaProject, '.mocktail_seed_runner.cjs');
+        const runnerSrc = [
+          "const fs = require('fs');",
+          "const path = require('path');",
+          "const seedFile = path.join(process.cwd(), '__mocktail_seed.json');",
+          "if (!fs.existsSync(seedFile)) { console.error('❌ Mock data JSON not found. Run the CLI first.'); process.exit(1); }",
+          "const payload = JSON.parse(fs.readFileSync(seedFile, 'utf8'));",
+          "const order = Array.isArray(payload.order) ? payload.order : Object.keys(payload.data);",
+          "const data = payload.data || {};",
+          "const { PrismaClient } = require('@prisma/client');",
+          "const prisma = new PrismaClient();",
+          "(async () => {",
+          "  try {",
+          "    for (const modelName of order) {",
+          "      const modelKey = modelName.charAt(0).toLowerCase() + modelName.slice(1);",
+          "      if (typeof prisma[modelKey]?.createMany === 'function') {",
+          "        await prisma[modelKey].createMany({ data: data[modelName], skipDuplicates: true });",
+          "        console.log(`✅ Seeded ${data[modelName].length} records into ${modelName}`);",
+          "      } else {",
+          "        console.warn(`⚠️ No createMany method found for model: ${modelName}`);",
+          "      }",
+          "    }",
+          "    await prisma.$disconnect();",
+          "  } catch (err) {",
+          "    console.error('❌ Error during seeding:', err);",
+          "    process.exit(1);",
+          "  }",
+          "})();",
+          ''
+        ].join('\n');
+        fs.writeFileSync(runnerPath, runnerSrc, 'utf8');
+
+        if (!globalOpts.quiet) console.log("\n🌱 Spawning seeding process in Prisma project...");
+        const seedCode = await run('node', [runnerPath], prismaProject);
+        try { fs.unlinkSync(runnerPath); } catch {}
+        if (seedCode === 0) {
+          if (!globalOpts.quiet) console.log('🌱 Seeding complete!');
+          if (!globalOpts.quiet) console.log("\n✅ Mock data generation completed.");
+          process.exit(0);
+        } else {
+          console.error('❌ Seeding failed!');
+          process.exit(1);
+        }
+      } else {
+        if (!globalOpts.quiet) console.log("\n✅ Mock data generation completed.");
+        process.exit(0);
+      }
 
     } catch (error) {
       spinner.fail("Failed!");
