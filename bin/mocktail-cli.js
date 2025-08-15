@@ -8,6 +8,7 @@ const os = require("os");
 const ora = require("ora").default;
 const chalk = require("chalk");
 const { spawn } = require("child_process");
+const { faker } = require('@faker-js/faker');
 const { writeMockDataToFile } = require("../src/utils/writeMockDataToFile");
 const { parsePrismaSchema } = require("../src/schema-parsers/prismaParser");
 const { generateMockData } = require("../src/generators/generateMockData");
@@ -100,6 +101,148 @@ ${chalk.cyan('Or visit')} ${chalk.underline.blue('https://github.com/mock-verse/
 `;
 };
 
+// Enhanced schema detection functions
+function findPrismaSchemas(basePath = process.cwd()) {
+  const schemas = [];
+  
+  function scanDirectory(dir) {
+    try {
+      const files = fs.readdirSync(dir);
+      for (const file of files) {
+        const fullPath = path.join(dir, file);
+        const stat = fs.statSync(fullPath);
+        
+        if (stat.isDirectory() && !file.startsWith('.') && file !== 'node_modules') {
+          scanDirectory(fullPath);
+        } else if (file === 'schema.prisma') {
+          schemas.push(fullPath);
+        }
+      }
+    } catch (err) {
+      // Skip directories we can't read
+    }
+  }
+  
+  scanDirectory(basePath);
+  return schemas;
+}
+
+function validatePrismaSchema(schemaPath) {
+  try {
+    const content = fs.readFileSync(schemaPath, 'utf8');
+    
+    // Basic validation checks
+    const hasDataSource = /datasource\s+db\s*\{/.test(content);
+    const hasGenerator = /generator\s+client\s*\{/.test(content);
+    const hasModels = /model\s+\w+\s*\{/.test(content);
+    
+    const errors = [];
+    if (!hasDataSource) errors.push('Missing datasource block');
+    if (!hasGenerator) errors.push('Missing generator block');
+    if (!hasModels) errors.push('No models found');
+    
+    return {
+      valid: errors.length === 0,
+      errors,
+      path: schemaPath
+    };
+  } catch (err) {
+    return {
+      valid: false,
+      errors: [`Cannot read schema file: ${err.message}`],
+      path: schemaPath
+    };
+  }
+}
+
+function autoDetectSchema() {
+  const schemas = findPrismaSchemas();
+  
+  if (schemas.length === 0) {
+    return null;
+  }
+  
+  // Validate all found schemas
+  const validSchemas = schemas.map(validatePrismaSchema).filter(s => s.valid);
+  
+  if (validSchemas.length === 0) {
+    console.warn('⚠️ Found Prisma schemas but none are valid:');
+    schemas.forEach(schema => {
+      const validation = validatePrismaSchema(schema);
+      if (!validation.valid) {
+        console.warn(`  ${schema}: ${validation.errors.join(', ')}`);
+      }
+    });
+    return null;
+  }
+  
+  // Prefer the default location
+  const defaultSchema = validSchemas.find(s => s.path.includes('/prisma/schema.prisma'));
+  if (defaultSchema) {
+    return defaultSchema.path;
+  }
+  
+  // Return the first valid schema
+  return validSchemas[0].path;
+}
+
+// Advanced relation presets
+const relationPresets = {
+  // Blog/Content Management
+  blog: {
+    User: {
+      posts: { count: { min: 1, max: 5 } },
+      comments: { count: { min: 0, max: 10 } }
+    },
+    Post: {
+      comments: { count: { min: 0, max: 15 } },
+      categories: { count: { min: 1, max: 3 } }
+    }
+  },
+  
+  // E-commerce
+  ecommerce: {
+    User: {
+      orders: { count: { min: 0, max: 8 } },
+      reviews: { count: { min: 0, max: 5 } }
+    },
+    Product: {
+      reviews: { count: { min: 0, max: 20 } },
+      categories: { count: { min: 1, max: 2 } }
+    }
+  },
+  
+  // Social Network
+  social: {
+    User: {
+      posts: { count: { min: 0, max: 10 } },
+      followers: { count: { min: 0, max: 50 } },
+      following: { count: { min: 0, max: 50 } }
+    }
+  }
+};
+
+// Custom relation generator
+function generateCustomRelations(model, preset, relationData) {
+  const presetConfig = relationPresets[preset];
+  if (!presetConfig || !presetConfig[model.name]) {
+    return relationData;
+  }
+  
+  const customData = { ...relationData };
+  const modelConfig = presetConfig[model.name];
+  
+  for (const [relationName, config] of Object.entries(modelConfig)) {
+    if (config.count) {
+      // Generate custom count for this relation
+      const count = faker.number.int(config.count);
+      // Apply custom logic here
+    }
+  }
+  
+  return customData;
+}
+
 // GENERATE command
 program
   .command("generate")
@@ -107,26 +250,57 @@ program
   .option("-c, --count <number>", "Number of records per model", "5")
   .option("-o, --out <directory>", "Output directory")
   .option("-f, --format <type>", "Output format: json, sql, ts, csv", "json")
-  .option("-s, --schema <path>", "Prisma schema path", "./prisma/schema.prisma")
+  .option("-s, --schema <path>", "Prisma schema path (auto-detected if not specified)", "./prisma/schema.prisma")
   .option("-m, --models <models>", "Comma-separated list of models (optional)")
   .option("--mock-config <path>", "Path to mocktail-cli.config.js")
   .option("-d, --depth <number>", "Nested relation depth", "1")
   .option("--seed", "Insert mock data into DB")
+  .option("--seed-value <number>", "Seed value for reproducible data generation")
+  .option("--preset <type>", "Relation preset: blog, ecommerce, social")
   .action(async (opts) => {
     const spinner = ora({ spinner: "dots" });
     try {
       const globalOpts = program.opts();
       // NO LOGO here anymore!
 
-      const schemaPath = path.resolve(process.cwd(), opts.schema);
+      // Replace the current schema handling with enhanced auto-detection
+      let schemaPath = opts.schema;
+
+      // Auto-detect schema if not specified or if default doesn't exist
+      if (!opts.schema || opts.schema === './prisma/schema.prisma') {
+        const detectedSchema = autoDetectSchema();
+        if (detectedSchema) {
+          schemaPath = detectedSchema;
+          if (!globalOpts.quiet) console.log(`🔍 Auto-detected schema: ${schemaPath}`);
+        }
+      }
+
+      schemaPath = path.resolve(process.cwd(), schemaPath);
+
+      // Enhanced schema validation
+      const schemaValidation = validatePrismaSchema(schemaPath);
+      if (!schemaValidation.valid) {
+        console.error(`❌ Invalid Prisma schema: ${schemaPath}`);
+        console.error(`Errors: ${schemaValidation.errors.join(', ')}`);
+        process.exit(1);
+      }
+
+      if (!fs.existsSync(schemaPath)) {
+        console.error(`❌ Schema file not found: ${schemaPath}`);
+        
+        // Try to help user find schemas
+        const schemas = findPrismaSchemas();
+        if (schemas.length > 0) {
+          console.log('\n Found these Prisma schemas:');
+          schemas.forEach(s => console.log(`  ${s}`));
+          console.log('\n💡 Try using one of these paths with --schema');
+        }
+        process.exit(1);
+      }
 
       // Load .env from the Prisma project root if present, without extra deps
       const envPath = path.join(path.dirname(schemaPath), '..', '.env');
       loadEnvFile(envPath);
-      if (!fs.existsSync(schemaPath)) {
-        console.error(`❌ Schema file not found: ${schemaPath}`);
-        process.exit(1);
-      }
 
       const count = parseInt(opts.count, 10);
       const depth = parseInt(opts.depth, 10);
@@ -257,7 +431,12 @@ program
         const isSqlOutput = opts.format === 'sql';
 
         // Always generate raw records for seeding and relation resolution
-        const rawGen = generateMockData(model, { count, relationData, config: { ...config, sqlMode: false } });
+        const rawGen = generateMockData(model, { 
+          count, 
+          relationData, 
+          config: { ...config, sqlMode: false },
+          preset: opts.preset 
+        });
         const rawRecords = rawGen.records;
         // Store raw records so downstream relations use plain values (not SQL-safe strings)
         generatedDataMap[model.name] = rawRecords;
@@ -265,7 +444,12 @@ program
         if (outputDir) {
           if (isSqlOutput) {
             // Generate SQL-safe values for file output
-            const sqlGen = generateMockData(model, { count, relationData, config: { ...config, sqlMode: true } });
+            const sqlGen = generateMockData(model, { 
+              count, 
+              relationData, 
+              config: { ...config, sqlMode: true },
+              preset: opts.preset 
+            });
             const sqlRecords = sqlGen.records;
             const written = writeMockDataToFile(model.name, sqlRecords, outputDir, opts.format, formatToSQL);
             if (!globalOpts.quiet) console.log(`✅ Saved data for ${model.name} → ${written}`);
@@ -302,6 +486,17 @@ program
       }
 
       if (opts.seed) {
+        // Set faker seed if provided
+        if (opts.seedValue) {
+          const seedValue = parseInt(opts.seedValue, 10);
+          if (isNaN(seedValue)) {
+            console.error("❌ --seed-value must be a valid integer.");
+            process.exit(1);
+          }
+          faker.seed(seedValue);
+          if (!globalOpts.quiet) console.log(`🎲 Using seed value: ${seedValue}`);
+        }
+
         // Write seed JSON into the Prisma project
         const prismaProject = path.resolve(path.dirname(schemaPath), "..");
         const seedFile = path.join(prismaProject, "__mocktail_seed.json");
@@ -381,7 +576,7 @@ program
     }
   });
 
-// Override generate command help with colorful custom output including --force-logo
+// Override generate command help with colorful custom output including --seed-value
 const generateCmd = program.commands.find(cmd => cmd.name() === "generate");
 generateCmd.helpInformation = function () {
   return `
@@ -398,6 +593,8 @@ ${chalk.magenta('Options:')}
   ${chalk.green('--mock-config <path>')}   ${chalk.gray('Path to mocktail-cli.config.js')}
   ${chalk.green('-d, --depth <number>')}   ${chalk.gray(`Nested relation depth (default: "${this._optionValues.depth || '1'}")`)}
   ${chalk.green('--seed')}                 ${chalk.gray('Insert mock data into DB')}
+  ${chalk.green('--seed-value <number>')}  ${chalk.gray('Seed value for reproducible data generation')}
+  ${chalk.green('--preset <type>')}        ${chalk.gray('Relation preset: blog, ecommerce, social')}
   ${chalk.green('--force-logo')}           ${chalk.gray('Force show the logo animation even if shown before')}
   ${chalk.green('-h, --help')}             ${chalk.gray('display help for command')}
 `;

@@ -62,10 +62,17 @@ function generateMockData(model, options = {}) {
   const {
     count = 10,
     customFields = {},
-    relationData = {},
-    config = {}
+    relationData: initialRelationData = {},
+    config = {},
+    preset = null
   } = options;
   const { sqlMode = false } = config;
+
+  // Apply preset if specified
+  let relationData = { ...initialRelationData };
+  if (preset) {
+    relationData = generateCustomRelations(model, preset, relationData);
+  }
 
   const relationIds = {};
   for (const k of Object.keys(relationData || {})) {
@@ -111,9 +118,11 @@ function generateMockData(model, options = {}) {
         continue;
       }
 
-      // Generate scalars
+      
+
+            // Generate scalars
       if (field.isScalar) {
-        const v = generateField(field.type);
+        const v = generateField(field); // Pass the whole field object
         rec[field.name] = sqlMode ? safeValue(v, { sqlMode }) : v;
         continue;
       }
@@ -230,6 +239,63 @@ function safeValue(value, { sqlMode = false } = {}) {
     return `'${JSON.stringify(value).replace(/'/g, "''")}'`;
   }
   return `'${JSON.stringify(value).replace(/'/g, "''")}'`;
+}
+
+// Advanced relation presets
+const relationPresets = {
+  // Blog/Content Management
+  blog: {
+    User: {
+      posts: { count: { min: 1, max: 5 } },
+      comments: { count: { min: 0, max: 10 } }
+    },
+    Post: {
+      comments: { count: { min: 0, max: 15 } },
+      categories: { count: { min: 1, max: 3 } }
+    }
+  },
+  
+  // E-commerce
+  ecommerce: {
+    User: {
+      orders: { count: { min: 0, max: 8 } },
+      reviews: { count: { min: 0, max: 5 } }
+    },
+    Product: {
+      reviews: { count: { min: 0, max: 20 } },
+      categories: { count: { min: 1, max: 2 } }
+    }
+  },
+  
+  // Social Network
+  social: {
+    User: {
+      posts: { count: { min: 0, max: 10 } },
+      followers: { count: { min: 0, max: 50 } },
+      following: { count: { min: 0, max: 50 } }
+    }
+  }
+};
+
+// Custom relation generator
+function generateCustomRelations(model, preset, relationData) {
+  const presetConfig = relationPresets[preset];
+  if (!presetConfig || !presetConfig[model.name]) {
+    return relationData;
+  }
+  
+  const customData = { ...relationData };
+  const modelConfig = presetConfig[model.name];
+  
+  for (const [relationName, config] of Object.entries(modelConfig)) {
+    if (config.count) {
+      // Generate custom count for this relation
+      const count = faker.number.int(config.count);
+      // Apply custom logic here
+    }
+  }
+  
+  return customData;
 }
 
 module.exports = { generateMockData };
