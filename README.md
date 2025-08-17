@@ -32,14 +32,14 @@ Mocktail-CLI is a Prisma-aware CLI tool for generating realistic mock data based
 
 ## Key features
 
-* **Schema auto-detection — automatically finds and validates schema.prisma.
-* **Advanced relation presets — generate realistic domain graphs (blog, ecommerce, social).
-* **Schema-aware generation — matches Prisma model types and relations.
-* **Relation handling — supports deep and circular relations with controlled `--depth`.
-* **Deterministic seeds — reproducible datasets with `--seed` and `--seed-value`.
-* **Multiple output formats — JSON, SQL, CSV, TypeScript.
-* **Custom generators — define per-model faker rules in `mocktail-cli.config.js`.
-* **CLI-first — quick commands for generate, seed, and export.
+* **Schema auto-detection** — automatically finds and validates schema.prisma.
+* **Advanced relation presets** — generate realistic domain graphs (blog, ecommerce, social).
+* **Schema-aware generation** — matches Prisma model types and relations.
+* **Relation handling** — supports deep and circular relations with controlled `--depth`.
+* **Deterministic seeds** — reproducible datasets with `--seed` and `--seed-value`.
+* **Multiple output formats** — JSON, SQL, CSV, TypeScript.
+* **Custom generators** — define per-model faker rules in `mocktail-cli.config.js`.
+* **CLI-first** — quick commands for generate, seed, and export.
 
 ---
 
