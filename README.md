@@ -154,19 +154,21 @@ module.exports = {
 
 How **Mocktail-CLI** compares with other schema-aware mock data tools:
 
-| Feature / Tool                  | **Mocktail-CLI** | Prisma-Seed | Prisma-Generator-Fake | Mockoon / MirageJS |
-|---------------------------------|------------------|-------------|------------------------|--------------------|
-| Schema-aware (reads Prisma)     | ✅ Yes           | ✅ Yes      | ✅ Yes                 | ❌ No              |
-| Auto-detect Prisma schema       | ✅ Yes           | ❌ No       | ❌ No                  | ❌ No              |
-| Circular relation handling      | ✅ Yes           | ⚠️ Partial  | ❌ No                  | ❌ No              |
-| Seed value reproducibility      | ✅ Yes           | ⚠️ Limited  | ❌ No                  | ❌ No              |
-| Output formats (JSON, SQL, CSV) | ✅ Yes           | ❌ No       | ❌ No                  | ⚠️ JSON only       |
-| Relation presets (blog, etc.)   | ✅ Yes           | ❌ No       | ❌ No                  | ❌ No              |
-| CLI-first workflow              | ✅ Yes           | ⚠️ Partial  | ❌ No (generator only) | ❌ No (server only) |
-| Extensible config (mocktail-cli.config.js) | ✅ Yes | ❌ No | ❌ No | ❌ No |
-| Actively maintained             | ✅ Yes           | ❌ No       | ❌ No                  | ⚠️ Varies          |
+| Feature / Tool                              | **Mocktail-CLI** | Prisma-Seed | Prisma-Generator-Fake | Mockoon / MirageJS | faker-js |
+|---------------------------------------------|-----------------|-------------|----------------------|------------------|----------|
+| Prisma schema aware (reads schema)          | ✅ Yes          | ✅ Yes      | ✅ Yes               | ❌ No             | ❌ No    |
+| Auto-detect Prisma schema                   | ✅ Yes          | ❌ No       | ❌ No                | ❌ No             | ❌ No    |
+| Handles relations (deep / circular-safe)    | ✅ Deep + safe  | ⚠️ Limited | ⚠️ Limited           | ❌ Manual         | ❌ No    |
+| Deterministic seeds                         | ✅ `--seed-value`| ⚠️ Partial | ⚠️ Partial           | ❌ No             | ✅*      |
+| Output formats                              | ✅ JSON / SQL / CSV / TS | ❌ Mostly JSON | ❌ Mostly JSON | ✅ JSON / API   | ⚠️ Code-driven only |
+| CLI-first workflow                           | ✅ Yes          | ⚠️ Partial | ⚠️ Plugin-only       | ✅ Yes (server)   | ❌ No    |
+| Relation presets (blog / ecommerce / social)| ✅ Built-in     | ❌ No       | ❌ No                | ❌ No             | ❌ No    |
+| DB seeding                                  | ✅ Yes          | ❌ No       | ❌ No                | ❌ No             | ❌ No    |
+| Extensible config                            | ✅ `mocktail-cli.config.js` | ⚠️ Partial | ⚠️ Partial     | ⚠️ Partial       | ⚠️ Manual only |
 
-✅ = Full support | ⚠️ = Partial / limited | ❌ = Not supported
+\* `faker-js` supports `faker.seed(...)` for deterministic values, but it is **not schema-aware** and **doesn’t handle relations automatically**.  
+
+❤️ Mocktail-CLI uses `@faker-js/faker` internally for realistic field data — every record feels lifelike.
 
 Takeaway:
 * Mocktail-CLI is the only Prisma-native, CLI-first tool that:
