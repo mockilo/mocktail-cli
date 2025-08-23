@@ -7,7 +7,7 @@ const repoRoot = __dirname;
 const standalonePkg = path.join(repoRoot, "package.json");
 const scopedPkg = path.join(repoRoot, "package.scoped.json");
 
-// Get the version currently published on npm
+// Get the latest published version from npm
 function getPublishedVersion(pkgName) {
   try {
     return execSync(`npm view ${pkgName} version`, { stdio: ['pipe','pipe','ignore'] })
@@ -17,13 +17,13 @@ function getPublishedVersion(pkgName) {
   }
 }
 
-// Bump patch version based on a given current version
-function bumpVersionFrom(currentVersion) {
-  const [major, minor, patch] = currentVersion.split(".").map(Number);
+// Bump patch version from a given version string
+function bumpVersionFrom(version) {
+  const [major, minor, patch] = version.split(".").map(Number);
   return `${major}.${minor}.${patch + 1}`;
 }
 
-// Update package.json with new version
+// Update package.json file with new version
 function updateVersion(pkgPath, newVersion) {
   const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
   pkg.version = newVersion;
@@ -32,39 +32,49 @@ function updateVersion(pkgPath, newVersion) {
   return newVersion;
 }
 
-// Publish package (auto-bump based on npm version)
+// Commit updated package.json files automatically
+function gitCommitVersion(pkgPaths, newVersion) {
+  execSync(`git add ${pkgPaths.join(" ")}`, { cwd: repoRoot });
+  execSync(`git commit -m "chore: bump version to ${newVersion}"`, { cwd: repoRoot });
+  console.log(`💾 Committed version ${newVersion} to git`);
+}
+
+// Publish a single package
 function publishPackage(pkgPath) {
   const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
   const publishedVersion = getPublishedVersion(pkg.name);
 
   let newVersion = pkg.version;
 
-  if (publishedVersion && publishedVersion === pkg.version) {
-    // Automatically bump patch from published version
+  // Always bump if published version is >= local version
+  if (publishedVersion && publishedVersion >= pkg.version) {
     newVersion = bumpVersionFrom(publishedVersion);
     updateVersion(pkgPath, newVersion);
+    gitCommitVersion([pkgPath], newVersion);
   }
 
   console.log(`📦 Publishing ${pkg.name}@${newVersion}...`);
   execSync("npm publish --access public", { cwd: repoRoot, stdio: "inherit" });
+
+  return newVersion;
 }
 
 // Publish both standalone and scoped packages
 function publishBoth() {
-  // Standalone package
-  publishPackage(standalonePkg);
+  // 1️⃣ Standalone package
+  const standaloneVersion = publishPackage(standalonePkg);
 
-  // Scoped package
+  // 2️⃣ Scoped package
   if (fs.existsSync(scopedPkg)) {
     const backupPkg = path.join(repoRoot, "package.json.bak");
     fs.renameSync(standalonePkg, backupPkg);
     fs.copyFileSync(scopedPkg, standalonePkg);
-    publishPackage(standalonePkg);
+    const scopedVersion = publishPackage(standalonePkg);
     fs.renameSync(backupPkg, standalonePkg);
   }
 
   console.log("✅ All packages published successfully!");
 }
 
-// Run the publish process
+// Run the process
 publishBoth();
