@@ -34,4 +34,5 @@ jobs:
       - name: Publish packages
         run: node publish.js
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.MOCKTAIL_CLI_CI_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.npm_token }}
+
