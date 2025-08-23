@@ -3,75 +3,67 @@ const { execSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 
-// Root directory
 const repoRoot = __dirname;
-
-// File paths
 const standalonePkg = path.join(repoRoot, "package.json");
 const scopedPkg = path.join(repoRoot, "package.scoped.json");
 
-// Function to get current version from npm
+// Get the version currently published on npm
 function getPublishedVersion(pkgName) {
   try {
-    const version = execSync(`npm view ${pkgName} version`, { stdio: ['pipe', 'pipe', 'ignore'] })
-      .toString()
-      .trim();
-    return version;
-  } catch (err) {
-    return null; // package not published yet
+    return execSync(`npm view ${pkgName} version`, { stdio: ['pipe','pipe','ignore'] })
+      .toString().trim();
+  } catch {
+    return null; // Not published yet
   }
 }
 
-// Function to bump patch version in package.json
-function bumpVersion(pkgPath) {
-  const pkgData = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
-  const [major, minor, patch] = pkgData.version.split(".").map(Number);
-  const newVersion = `${major}.${minor}.${patch + 1}`;
-  pkgData.version = newVersion;
-  fs.writeFileSync(pkgPath, JSON.stringify(pkgData, null, 2));
-  console.log(`\n🔼 Bumped ${pkgData.name} to version ${newVersion}`);
+// Bump patch version based on a given current version
+function bumpVersionFrom(currentVersion) {
+  const [major, minor, patch] = currentVersion.split(".").map(Number);
+  return `${major}.${minor}.${patch + 1}`;
+}
+
+// Update package.json with new version
+function updateVersion(pkgPath, newVersion) {
+  const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
+  pkg.version = newVersion;
+  fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2));
+  console.log(`🔼 Updated ${pkg.name} to version ${newVersion}`);
   return newVersion;
 }
 
-// Function to publish a package (with auto-bump)
+// Publish package (auto-bump based on npm version)
 function publishPackage(pkgPath) {
-  const pkgData = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
-  const publishedVersion = getPublishedVersion(pkgData.name);
+  const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
+  const publishedVersion = getPublishedVersion(pkg.name);
 
-  if (publishedVersion === pkgData.version) {
-    console.log(`\nℹ️  ${pkgData.name}@${pkgData.version} already published. Bumping patch...`);
-    bumpVersion(pkgPath);
+  let newVersion = pkg.version;
+
+  if (publishedVersion && publishedVersion === pkg.version) {
+    // Automatically bump patch from published version
+    newVersion = bumpVersionFrom(publishedVersion);
+    updateVersion(pkgPath, newVersion);
   }
 
-  const finalVersion = JSON.parse(fs.readFileSync(pkgPath, "utf-8")).version;
-
-  console.log(`\n📦 Publishing "${pkgData.name}" version ${finalVersion}...`);
+  console.log(`📦 Publishing ${pkg.name}@${newVersion}...`);
   execSync("npm publish --access public", { cwd: repoRoot, stdio: "inherit" });
 }
 
-// Function to handle both standalone and scoped
+// Publish both standalone and scoped packages
 function publishBoth() {
-  // 1️⃣ Publish standalone package
+  // Standalone package
   publishPackage(standalonePkg);
 
-  // 2️⃣ Publish scoped package if exists
+  // Scoped package
   if (fs.existsSync(scopedPkg)) {
     const backupPkg = path.join(repoRoot, "package.json.bak");
-
-    // Backup original package.json
     fs.renameSync(standalonePkg, backupPkg);
-
-    // Copy scoped package.json to package.json
     fs.copyFileSync(scopedPkg, standalonePkg);
-
-    // Publish scoped package
     publishPackage(standalonePkg);
-
-    // Restore original package.json
     fs.renameSync(backupPkg, standalonePkg);
   }
 
-  console.log("\n✅ All packages published successfully!");
+  console.log("✅ All packages published successfully!");
 }
 
 // Run the publish process
