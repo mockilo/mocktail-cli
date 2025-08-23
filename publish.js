@@ -17,13 +17,13 @@ function getPublishedVersion(pkgName) {
   }
 }
 
-// Bump patch version from a given version string
+// Bump patch version
 function bumpVersionFrom(version) {
   const [major, minor, patch] = version.split(".").map(Number);
   return `${major}.${minor}.${patch + 1}`;
 }
 
-// Update package.json file with new version
+// Update package.json with new version
 function updateVersion(pkgPath, newVersion) {
   const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
   pkg.version = newVersion;
@@ -32,11 +32,14 @@ function updateVersion(pkgPath, newVersion) {
   return newVersion;
 }
 
-// Commit updated package.json files automatically
-function gitCommitVersion(pkgPaths, newVersion) {
+// Commit updated package.json files
+function gitCommitAndPush(pkgPaths, newVersion) {
+  execSync(`git config user.name "github-actions"`, { cwd: repoRoot });
+  execSync(`git config user.email "github-actions@users.noreply.github.com"`, { cwd: repoRoot });
   execSync(`git add ${pkgPaths.join(" ")}`, { cwd: repoRoot });
   execSync(`git commit -m "chore: bump version to ${newVersion}"`, { cwd: repoRoot });
-  console.log(`💾 Committed version ${newVersion} to git`);
+  execSync(`git push origin HEAD`, { cwd: repoRoot });
+  console.log(`💾 Committed and pushed version ${newVersion}`);
 }
 
 // Publish a single package
@@ -46,11 +49,10 @@ function publishPackage(pkgPath) {
 
   let newVersion = pkg.version;
 
-  // Always bump if published version is >= local version
   if (publishedVersion && publishedVersion >= pkg.version) {
     newVersion = bumpVersionFrom(publishedVersion);
     updateVersion(pkgPath, newVersion);
-    gitCommitVersion([pkgPath], newVersion);
+    gitCommitAndPush([pkgPath], newVersion);
   }
 
   console.log(`📦 Publishing ${pkg.name}@${newVersion}...`);
@@ -61,10 +63,10 @@ function publishPackage(pkgPath) {
 
 // Publish both standalone and scoped packages
 function publishBoth() {
-  // 1️⃣ Standalone package
+  // Standalone package
   const standaloneVersion = publishPackage(standalonePkg);
 
-  // 2️⃣ Scoped package
+  // Scoped package
   if (fs.existsSync(scopedPkg)) {
     const backupPkg = path.join(repoRoot, "package.json.bak");
     fs.renameSync(standalonePkg, backupPkg);
@@ -76,5 +78,4 @@ function publishBoth() {
   console.log("✅ All packages published successfully!");
 }
 
-// Run the process
 publishBoth();
