@@ -1,35 +1,35 @@
-name: mocktail-cli
+name: Publish Mocktail CLI
 
 on:
   push:
     branches:
-      - main  # or your default branch
+      - main
 
 jobs:
   publish:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
-      
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
+      # 1️⃣ Checkout code
+      - uses: actions/checkout@v4
+
+      # 2️⃣ Setup Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 18
+          registry-url: https://registry.npmjs.org/
 
+      # 3️⃣ Install dependencies
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
+      # 4️⃣ Run tests
       - name: Run tests
         run: npm test
 
-      - name: Set up npm auth
-        run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
-        env:
-          NPM_TOKEN: ${{ secrets.MOCKTAIL_CLI_CI_TOKEN }}
-
-
-      - name: Publish to npm
-        run: npm publish --access public
+      # 5️⃣ Publish with auto-bump
+      - name: Publish packages
+        run: node publish.js
         env:
           NODE_AUTH_TOKEN: ${{ secrets.MOCKTAIL_CLI_CI_TOKEN }}
