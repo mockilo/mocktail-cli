@@ -1,4 +1,4 @@
-name: Node.js Package Release
+name: Node.js Package
 
 on:
   release:
@@ -9,11 +9,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-
       - run: npm ci
       - run: npm test
 
@@ -22,17 +20,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           registry-url: https://registry.npmjs.org/
-
       - run: npm ci
-
-      # Publish using publish.js so auto-bump works
-      - name: Publish packages
-        run: node publish.js
+      - run: npm publish
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.npm_token }}
-
+          NODE_AUTH_TOKEN: ${{ secrets.MOCKTAIL_CLI_CI_TOKEN }}
