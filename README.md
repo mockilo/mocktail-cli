@@ -181,7 +181,7 @@ Takeaway:
 
 * v1.0: CLI complete with flags for depth, output formats, custom config.
 * v1.1: ✅ Schema auto-detection, advanced relation presets (blog, ecommerce, social).
-* v1.2+: Integration with Mock-Verse for API mocking, seeding, and team workflows.
+* v1.2+: Integration with Mockilo for API mocking, seeding, and team workflows.
 
 ---
 

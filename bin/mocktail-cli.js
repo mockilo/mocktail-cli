@@ -97,7 +97,7 @@ ${chalk.magenta('Commands:')}
 
 ${chalk.cyan('For detailed documentation, run:')}
   ${chalk.green('mocktail-cli docs')}
-${chalk.cyan('Or visit')} ${chalk.underline.blue('https://github.com/mock-verse/mocktail-cli')}
+${chalk.cyan('Or visit')} ${chalk.underline.blue('https://github.com/mockilo/mocktail-cli')}
 `;
 };
 
