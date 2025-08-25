@@ -7,19 +7,29 @@ const repoRoot = __dirname;
 const standalonePkg = path.join(repoRoot, "package.json");
 const scopedPkg = path.join(repoRoot, "package.scoped.json");
 
-// Compare semantic versions numerically (handles beta properly)
-function isVersionGreaterOrEqual(a, b) {
-  const clean = v => v.split('-')[0].split('.').map(n => parseInt(n));
-  const pa = clean(a);
-  const pb = clean(b);
-  for (let i = 0; i < 3; i++) {
-    if (pa[i] > pb[i]) return true;
-    if (pa[i] < pb[i]) return false;
+// Parse version into [major, minor, patch, pre, preNum]
+function parseVersion(v) {
+  const [main, pre] = v.split('-');
+  const [major, minor, patch] = main.split('.').map(n => parseInt(n));
+  let preNum = null;
+  if (pre) {
+    const match = pre.match(/([a-z]+)\.?(\d+)?/i);
+    if (match) preNum = parseInt(match[2] || 0);
   }
-  return true; // equal
+  return { major, minor, patch, pre, preNum };
 }
 
-// Get latest published version from npm
+// Increment beta version
+function bumpBeta(version) {
+  const { major, minor, patch, pre, preNum } = parseVersion(version);
+  if (pre && pre.startsWith("beta")) {
+    return `${major}.${minor}.${patch}-beta.${preNum + 1}`;
+  } else {
+    return `${major}.${minor}.${patch}-beta.1`;
+  }
+}
+
+// Get latest published version
 function getPublishedVersion(pkgName) {
   try {
     return execSync(`npm view ${pkgName} version`, { stdio: ['pipe','pipe','ignore'] })
@@ -29,13 +39,7 @@ function getPublishedVersion(pkgName) {
   }
 }
 
-// Bump patch version
-function bumpVersionFrom(version) {
-  const [major, minor, patch] = version.split(".").map(n => parseInt(n));
-  return `${major}.${minor}.${patch + 1}`;
-}
-
-// Update package.json with new version
+// Update package.json version
 function updateVersion(pkgPath, newVersion) {
   const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
   pkg.version = newVersion;
@@ -44,26 +48,16 @@ function updateVersion(pkgPath, newVersion) {
   return newVersion;
 }
 
-// Commit version bump
-function gitCommitAndPush(pkgPaths, newVersion) {
-  execSync(`git config user.name "github-actions"`, { cwd: repoRoot });
-  execSync(`git config user.email "github-actions@users.noreply.github.com"`, { cwd: repoRoot });
-  execSync(`git add ${pkgPaths.join(" ")}`, { cwd: repoRoot });
-  execSync(`git commit -m "chore: bump version to ${newVersion}"`, { cwd: repoRoot });
-  execSync(`git push origin HEAD`, { cwd: repoRoot });
-  console.log(`💾 Committed and pushed version ${newVersion}`);
-}
-
 // Publish single package
 function publishPackage(pkgPath) {
   const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
   const publishedVersion = getPublishedVersion(pkg.name);
   let newVersion = pkg.version;
 
-  if (publishedVersion && isVersionGreaterOrEqual(publishedVersion, pkg.version)) {
-    newVersion = bumpVersionFrom(publishedVersion);
+  // If published version is same or newer, bump beta
+  if (publishedVersion && publishedVersion === pkg.version) {
+    newVersion = bumpBeta(publishedVersion);
     updateVersion(pkgPath, newVersion);
-    gitCommitAndPush([pkgPath], newVersion);
   }
 
   console.log(`📦 Publishing ${pkg.name}@${newVersion}...`);
@@ -72,7 +66,7 @@ function publishPackage(pkgPath) {
   return newVersion;
 }
 
-// Publish standalone and scoped packages
+// Publish both standalone and scoped packages
 function publishBoth() {
   publishPackage(standalonePkg);
 
