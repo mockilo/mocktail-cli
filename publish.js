@@ -7,10 +7,26 @@ const repoRoot = __dirname;
 const standalonePkg = path.join(repoRoot, "package.json");
 const scopedPkg = path.join(repoRoot, "package.scoped.json");
 
+// --- NEW: branch guard ---
+function getCurrentBranch() {
+  try {
+    return execSync("git rev-parse --abbrev-ref HEAD").toString().trim();
+  } catch {
+    return null;
+  }
+}
+
+const branch = getCurrentBranch();
+if (branch && branch !== "main") {
+  console.log(`⚠️  Skipping publish: current branch is '${branch}', not 'main'.`);
+  process.exit(0);
+}
+// -------------------------
+
 // Parse version into [major, minor, patch, pre, preNum]
 function parseVersion(v) {
-  const [main, pre] = v.split('-');
-  const [major, minor, patch] = main.split('.').map(n => parseInt(n));
+  const [main, pre] = v.split("-");
+  const [major, minor, patch] = main.split(".").map((n) => parseInt(n));
   let preNum = null;
   if (pre) {
     const match = pre.match(/([a-z]+)\.?(\d+)?/i);
@@ -19,7 +35,6 @@ function parseVersion(v) {
   return { major, minor, patch, pre, preNum };
 }
 
-// Increment beta version
 function bumpBeta(version) {
   const { major, minor, patch, pre, preNum } = parseVersion(version);
   if (pre && pre.startsWith("beta")) {
@@ -29,17 +44,16 @@ function bumpBeta(version) {
   }
 }
 
-// Get latest published version
 function getPublishedVersion(pkgName) {
   try {
-    return execSync(`npm view ${pkgName} version`, { stdio: ['pipe','pipe','ignore'] })
-      .toString().trim();
+    return execSync(`npm view ${pkgName} version`, { stdio: ["pipe", "pipe", "ignore"] })
+      .toString()
+      .trim();
   } catch {
     return null;
   }
 }
 
-// Update package.json version
 function updateVersion(pkgPath, newVersion) {
   const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
   pkg.version = newVersion;
@@ -48,13 +62,11 @@ function updateVersion(pkgPath, newVersion) {
   return newVersion;
 }
 
-// Publish single package
 function publishPackage(pkgPath) {
   const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
   const publishedVersion = getPublishedVersion(pkg.name);
   let newVersion = pkg.version;
 
-  // If published version is same or newer, bump beta
   if (publishedVersion && publishedVersion === pkg.version) {
     newVersion = bumpBeta(publishedVersion);
     updateVersion(pkgPath, newVersion);
@@ -66,7 +78,6 @@ function publishPackage(pkgPath) {
   return newVersion;
 }
 
-// Publish both standalone and scoped packages
 function publishBoth() {
   publishPackage(standalonePkg);
 
