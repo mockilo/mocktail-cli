@@ -1,0 +1,42 @@
+# Development files
+node_modules/
+*.log
+*.tgz
+*.tar.gz
+
+# Test files
+tests/
+test-schemas/
+**/*.test.ts
+**/*.spec.ts
+
+# Documentation (keep README.md)
+docs/
+
+# Config files
+tsconfig.json
+eslint.config.mjs
+mockConfig.js
+mocktail-cli.config.js
+
+# Development scripts
+publish.js
+package.scoped.json
+
+# Prisma examples
+prisma/
+
+# Build artifacts
+dist/
+*.js.map
+*.d.ts.map
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db

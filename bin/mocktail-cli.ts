@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env npx tsx
 //
 
 import { Command } from "commander";
@@ -10,13 +10,17 @@ import chalk from "chalk";
 import { spawn } from "child_process";
 import { faker } from '@faker-js/faker';
 import { writeMockDataToFile } from "../src/utils/writeMockDataToFile";
-import { parsePrismaSchema } from "../src/schema-parsers/prismaParser";
 import { generateMockData } from "../src/generators/generateMockData";
+import { SchemaRegistry } from "../src/schema-parsers/schemaRegistry";
+import { errorHandler } from "../src/utils/errorHandler";
+import { performanceOptimizer } from "../src/utils/performanceOptimizer";
+import { pluginManager } from "../src/plugins/pluginManager";
+import { outputFormatter } from "../src/utils/outputFormatter";
 // Logo
 import printMocktailLogo from '../src/printMocktailLogo';
 
 // Read version from package.json
-const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '../../package.json'), 'utf8'));
+const packageJson = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'package.json'), 'utf8'));
 const version = packageJson.version;
 
 import type {
@@ -90,120 +94,155 @@ const program = new Command();
 
 program
   .name("mocktail-cli")
-  .description("Prisma-aware mock data generator")
+  .description("Schema-aware mock data generator")
   .version(version)
   .option('--no-logo', 'Suppress logo output globally')
   .option('-q, --quiet', 'Suppress output except errors globally')
-  .option('--force-logo', 'Force show the logo animation even if shown before');
+  .option('--force-logo', 'Force show the logo animation even if shown before')
+  .option('--enable-plugins', 'Enable plugin system')
+  .option('--plugin-dir <path>', 'Directory to load plugins from')
+  .option('--performance-mode', 'Enable performance optimizations for large datasets')
+  .option('--memory-limit <mb>', 'Set memory limit in MB', '1024')
+  .option('--batch-size <size>', 'Set batch size for processing', '1000')
+  .option('--enable-advanced-relations', 'Enable advanced relation detection')
+  .option('--relation-confidence <threshold>', 'Set relation detection confidence threshold', '0.5')
+  .option('--verbose', 'Enable verbose output with detailed information')
+  .option('--timestamp', 'Add timestamps to output');
 
-// Custom colorful main help output
-program.helpInformation = function (): string {
-  return `
-${chalk.hex('#00d8c9').bold('Usage:')} ${chalk.greenBright('mocktail-cli')} ${chalk.yellow('[options]')} ${chalk.yellow('[command]')}
 
-${chalk.cyan('Prisma-aware mock data generator')}
+// Initialize schema registry lazily
+let schemaRegistry: SchemaRegistry | null = null;
 
-${chalk.magenta('Options:')}
-  ${chalk.green('-V, --version')}       ${chalk.gray('output the version number')}
-  ${chalk.green('--no-logo')}           ${chalk.gray('Suppress logo output globally')}
-  ${chalk.green('-q, --quiet')}         ${chalk.gray('Suppress output except errors globally')}
-  ${chalk.green('--force-logo')}        ${chalk.gray('Force show the logo animation even if shown before')}
-  ${chalk.green('-h, --help')}          ${chalk.gray('display help for command')}
-
-${chalk.magenta('Commands:')}
-  ${chalk.yellow('generate [options]')}  ${chalk.gray('Generate mock data for a Prisma schema')}
-  ${chalk.yellow('docs')}                ${chalk.gray('Show full README.md documentation in terminal')}
-  ${chalk.yellow('help [command]')}      ${chalk.gray('display help for command')}
-
-${chalk.cyan('For detailed documentation, run:')}
-  ${chalk.green('mocktail-cli docs')}
-${chalk.cyan('Or visit')} ${chalk.underline.blue('https://github.com/mockilo/mocktail-cli')}
-`;
-};
+function getSchemaRegistry(): SchemaRegistry {
+  if (!schemaRegistry) {
+    schemaRegistry = new SchemaRegistry();
+  }
+  return schemaRegistry;
+}
 
 // Enhanced schema detection functions
-function findPrismaSchemas(basePath: string = process.cwd()): string[] {
-  const schemas: string[] = [];
-  
-  function scanDirectory(dir: string): void {
-    try {
-      const files = fs.readdirSync(dir);
-      for (const file of files) {
-        const fullPath = path.join(dir, file);
-        const stat = fs.statSync(fullPath);
-        
-        if (stat.isDirectory() && !file.startsWith('.') && file !== 'node_modules') {
-          scanDirectory(fullPath);
-        } else if (file === 'schema.prisma') {
-          schemas.push(fullPath);
-        }
-      }
-    } catch (err) {
-      // Skip directories we can't read
-    }
-  }
-  
-  scanDirectory(basePath);
-  return schemas;
+function findSchemas(basePath: string = process.cwd()): string[] {
+  return getSchemaRegistry().getDetector().findSchemaFiles(basePath);
 }
 
-function validatePrismaSchema(schemaPath: string): SchemaValidation {
-  try {
-    const content = fs.readFileSync(schemaPath, 'utf8');
-    
-    // Basic validation checks
-    const hasDataSource = /datasource\s+db\s*\{/.test(content);
-    const hasGenerator = /generator\s+client\s*\{/.test(content);
-    const hasModels = /model\s+\w+\s*\{/.test(content);
-    
-    const errors: string[] = [];
-    if (!hasDataSource) errors.push('Missing datasource block');
-    if (!hasGenerator) errors.push('Missing generator block');
-    if (!hasModels) errors.push('No models found');
-    
-    return {
-      valid: errors.length === 0,
-      errors,
-      path: schemaPath
-    };
-  } catch (err: any) {
-    return {
-      valid: false,
-      errors: [`Cannot read schema file: ${err.message}`],
-      path: schemaPath
-    };
+// Process a single schema file
+async function processSingleSchema(schemaPath: string, schemaType: string, opts: GenerateCommandOptions, _globalOpts: GlobalOptions): Promise<void> {
+  const resolvedPath = path.resolve(process.cwd(), schemaPath);
+  
+  // Validate schema
+  const schemaValidation = await validateSchema(resolvedPath, schemaType);
+  if (!schemaValidation.valid) {
+    throw new Error(`Invalid schema: ${schemaValidation.errors.join(', ')}`);
   }
+  
+  // Parse schema
+  const models: ModelsMap = await getSchemaRegistry().parseSchema(resolvedPath, schemaType);
+  
+  if (Object.keys(models).length === 0) {
+    throw new Error('No models found in schema');
+  }
+  
+  // Filter models if specified
+  let filteredModels = models;
+  if (opts.models) {
+    const modelNames = opts.models.split(',').map(name => name.trim());
+    filteredModels = Object.fromEntries(
+      Object.entries(models).filter(([name]) => modelNames.includes(name))
+    );
+  }
+  
+  // Generate output path
+  const outputPath = opts.out ? path.join(opts.out, path.basename(schemaPath, path.extname(schemaPath))) : undefined;
+  
+  // Run generation - using the existing generate command logic
+  const { runGenerate } = await import('../src/commands/generate');
+  await runGenerate({
+    schema: resolvedPath,
+    count: parseInt(opts.count, 10),
+    seed: opts.seed || false,
+    output: outputPath || '',
+    models: filteredModels,
+    format: opts.format,
+    depth: parseInt(opts.depth, 10),
+    nest: opts.nest || false,
+    relations: opts.relations || false,
+    dedupe: opts.dedupe || false,
+    pretty: opts.pretty || false,
+    noLog: opts.noLog || false,
+    seedValue: opts.seedValue || undefined,
+    preset: opts.preset || undefined
+  });
 }
 
-function autoDetectSchema(): string | null {
-  const schemas = findPrismaSchemas();
+async function validateSchema(schemaPath: string, schemaType?: string): Promise<SchemaValidation> {
+  return await getSchemaRegistry().validateSchema(schemaPath, schemaType);
+}
+
+function autoDetectSchema(): { path: string; type: string } | null {
+  const schemas = findSchemas();
   
   if (schemas.length === 0) {
     return null;
   }
   
   // Validate all found schemas
-  const validSchemas = schemas.map(validatePrismaSchema).filter(s => s.valid);
+  const validSchemas: Array<{ path: string; type: string; validation: SchemaValidation }> = [];
+  
+  for (const schemaPath of schemas) {
+    const detectedType = getSchemaRegistry().getDetector().detectSchemaType(schemaPath);
+    if (detectedType) {
+      // Note: This is a synchronous check for auto-detection
+      // In a real implementation, you might want to make this async
+      const parser = getSchemaRegistry().getParser(detectedType);
+      if (parser) {
+        try {
+          const validation = parser.validateSchema(schemaPath);
+          if (validation.valid) {
+            validSchemas.push({ path: schemaPath, type: detectedType, validation });
+          }
+        } catch (err) {
+          // Skip invalid schemas
+        }
+      }
+    }
+  }
   
   if (validSchemas.length === 0) {
-    console.warn('⚠️ Found Prisma schemas but none are valid:');
+    console.warn('⚠️ Found schema files but none are valid:');
     schemas.forEach(schema => {
-      const validation = validatePrismaSchema(schema);
-      if (!validation.valid) {
-        console.warn(`  ${schema}: ${validation.errors.join(', ')}`);
+      const detectedType = getSchemaRegistry().getDetector().detectSchemaType(schema);
+      if (detectedType) {
+        const parser = getSchemaRegistry().getParser(detectedType);
+        if (parser) {
+          try {
+            const validation = parser.validateSchema(schema);
+            if (!validation.valid) {
+              console.warn(`  ${schema} (${detectedType}): ${validation.errors.join(', ')}`);
+            }
+          } catch (err) {
+            console.warn(`  ${schema} (${detectedType}): Invalid schema`);
+          }
+        }
       }
     });
     return null;
   }
   
-  // Prefer the default location
-  const defaultSchema = validSchemas.find(s => s.path.includes('/prisma/schema.prisma'));
-  if (defaultSchema) {
-    return defaultSchema.path;
+  // Prefer Prisma schema in default location
+  const defaultPrismaSchema = validSchemas.find(s => 
+    s.type === 'prisma' && s.path.includes('/prisma/schema.prisma')
+  );
+  if (defaultPrismaSchema) {
+    return { path: defaultPrismaSchema.path, type: defaultPrismaSchema.type };
   }
   
   // Return the first valid schema
-  return validSchemas[0]?.path || '';
+  const firstValid = validSchemas[0];
+  if (firstValid) {
+    return { path: firstValid.path, type: firstValid.type };
+  }
+  
+  return null;
 }
 
 // Advanced relation presets
@@ -266,11 +305,13 @@ const relationPresets: RelationPresets = {
 // GENERATE command
 const generateCommand = program
   .command("generate")
-  .description("Generate mock data for a Prisma schema")
+  .description("Generate mock data for any schema (Prisma, GraphQL, JSON Schema, OpenAPI)")
   .option("-c, --count <number>", "Number of records per model", "5")
   .option("-o, --out <directory>", "Output directory")
   .option("-f, --format <type>", "Output format: json, sql, ts, csv", "json")
-  .option("-s, --schema <path>", "Prisma schema path (auto-detected if not specified)", "./prisma/schema.prisma")
+  .option("-s, --schema <path>", "Schema path (auto-detected if not specified)", "./prisma/schema.prisma")
+  .option("-t, --type <type>", "Schema type: prisma, graphql, json-schema, openapi, typescript, protobuf, avro, xml-schema, sql-ddl, mongoose, sequelize, joi, yup, zod (auto-detected if not specified)")
+  .option("--batch", "Process multiple schema files in the current directory")
   .option("-m, --models <models>", "Comma-separated list of models (optional)")
   .option("--mock-config <path>", "Path to mocktail-cli.config.js")
   .option("-d, --depth <number>", "Nested relation depth (depth > 1 enables relations)", "1")
@@ -288,27 +329,78 @@ generateCommand.action(async (opts: GenerateCommandOptions) => {
     const spinner: OraSpinner = ora({ spinner: "dots" });
     try {
       const globalOpts: GlobalOptions = program.opts();
-      // NO LOGO here anymore!
+      
+      // Initialize enhanced features
+      if ((globalOpts as any).enablePlugins) {
+        if ((globalOpts as any).pluginDir) {
+          await pluginManager.loadPluginsFromDirectory((globalOpts as any).pluginDir);
+        } else {
+          // Load default plugins
+          const defaultPluginDir = path.join(__dirname, '../src/plugins/examples');
+          if (fs.existsSync(defaultPluginDir)) {
+            await pluginManager.loadPluginsFromDirectory(defaultPluginDir);
+          }
+        }
+        outputFormatter.success('Plugin system enabled');
+        outputFormatter.info(pluginManager.getPluginInfo());
+      }
 
-      // Replace the current schema handling with enhanced auto-detection
+      // Initialize performance optimizer
+      if ((globalOpts as any).performanceMode) {
+        performanceOptimizer.startGeneration();
+        outputFormatter.success('Performance mode enabled');
+      }
+
+      // Batch processing
+      if (opts.batch) {
+        const schemas = findSchemas();
+        if (schemas.length === 0) {
+          console.error(chalk.red('❌ No schema files found for batch processing'));
+          process.exit(1);
+        }
+        
+        console.log(chalk.blue(`🔄 Processing ${schemas.length} schema files...`));
+        
+        for (const schemaPath of schemas) {
+          const detectedType = getSchemaRegistry().getDetector().detectSchemaType(schemaPath);
+          if (detectedType) {
+            console.log(chalk.gray(`\n📄 Processing: ${schemaPath} (${detectedType})`));
+            try {
+              await processSingleSchema(schemaPath, detectedType, opts, globalOpts);
+            } catch (error: any) {
+              console.error(chalk.red(`❌ Failed to process ${schemaPath}: ${error.message}`));
+            }
+          }
+        }
+        return;
+      }
+
+      // Enhanced schema detection and validation
       let schemaPath: string = opts.schema;
+      let schemaType: string | undefined = opts.type;
 
       // Auto-detect schema if not specified or if default doesn't exist
       if (!opts.schema || opts.schema === './prisma/schema.prisma') {
         const detectedSchema = autoDetectSchema();
         if (detectedSchema) {
-          schemaPath = detectedSchema;
-          if (!globalOpts.quiet) console.log(`🔍 Auto-detected schema: ${schemaPath}`);
+          schemaPath = detectedSchema.path;
+          schemaType = detectedSchema.type;
+          if (!globalOpts.quiet) console.log(`🔍 Auto-detected schema: ${schemaPath} (${schemaType})`);
         }
       }
 
       schemaPath = path.resolve(process.cwd(), schemaPath);
 
       // Enhanced schema validation
-      const schemaValidation = validatePrismaSchema(schemaPath);
+      const schemaValidation = await validateSchema(schemaPath, schemaType);
       if (!schemaValidation.valid) {
-        console.error(`❌ Invalid Prisma schema: ${schemaPath}`);
+        console.error(`❌ Invalid ${schemaType || 'schema'}: ${schemaPath}`);
         console.error(`Errors: ${schemaValidation.errors.join(', ')}`);
+        console.error(chalk.yellow('💡 Supported schema types:'));
+        console.error(chalk.gray('  - prisma, graphql, json-schema, openapi'));
+        console.error(chalk.gray('  - typescript, protobuf, avro, xml-schema'));
+        console.error(chalk.gray('  - sql-ddl, mongoose, sequelize'));
+        console.error(chalk.gray('  - joi, yup, zod'));
         process.exit(1);
       }
 
@@ -316,10 +408,13 @@ generateCommand.action(async (opts: GenerateCommandOptions) => {
         console.error(`❌ Schema file not found: ${schemaPath}`);
         
         // Try to help user find schemas
-        const schemas = findPrismaSchemas();
+        const schemas = findSchemas();
         if (schemas.length > 0) {
-          console.log('\n Found these Prisma schemas:');
-          schemas.forEach(s => console.log(`  ${s}`));
+          console.log('\n Found these schema files:');
+          schemas.forEach(s => {
+            const detectedType = getSchemaRegistry().getDetector().detectSchemaType(s);
+            console.log(`  ${s} (${detectedType || 'unknown'})`);
+          });
           console.log('\n💡 Try using one of these paths with --schema');
         }
         process.exit(1);
@@ -351,7 +446,7 @@ generateCommand.action(async (opts: GenerateCommandOptions) => {
         ? loadMockConfig(opts.mockConfig)
         : null;
 
-      const modelsObject: ModelsMap = parsePrismaSchema(schemaPath);
+      const modelsObject: ModelsMap = await getSchemaRegistry().parseSchema(schemaPath, schemaType);
       const allModels: Model[] = Object.values(modelsObject);
 
       let filteredModels: Model[] = allModels;
@@ -843,41 +938,30 @@ generateCommand.action(async (opts: GenerateCommandOptions) => {
 
     } catch (error: any) {
       spinner.fail("Failed!");
-      console.error("❌ Error:", error.message || error);
+      
+      // Enhanced error handling
+      const enhancedError = errorHandler.createEnhancedError(
+        error,
+        error.code || 'GENERATION_ERROR',
+        {
+          command: 'generate',
+          schemaPath: opts.schema,
+          schemaType: opts.type || 'unknown'
+        }
+      );
+      
+      errorHandler.logError(enhancedError);
+      
+      // Stop performance monitoring
+      if ((program.opts() as any).performanceMode) {
+        performanceOptimizer.stopGeneration();
+        console.log(performanceOptimizer.getPerformanceReport());
+      }
+      
       process.exit(1);
     }
   });
 
-// Override generate command help with colorful custom output including --seed-value
-const generateCmd = program.commands.find(cmd => cmd.name() === "generate");
-if (generateCmd) {
-  generateCmd.helpInformation = function (): string {
-    return `
-${chalk.hex('#00d8c9').bold('Usage:')} ${chalk.greenBright('mocktail-cli generate')} ${chalk.yellow('[options]')}
-
-${chalk.cyan('Generate mock data for a Prisma schema')}
-
-${chalk.magenta('Options:')}
-  ${chalk.green('-c, --count <number>')}   ${chalk.gray(`Number of records per model (default: "5")`)}
-  ${chalk.green('-o, --out <directory>')}  ${chalk.gray('Output directory')}
-  ${chalk.green('-f, --format <type>')}    ${chalk.gray(`Output format: json, sql, ts, csv (default: "json")`)}
-  ${chalk.green('-s, --schema <path>')}    ${chalk.gray(`Prisma schema path (default: "./prisma/schema.prisma")`)}
-  ${chalk.green('-m, --models <models>')}  ${chalk.gray('Comma-separated list of models (optional)')}
-  ${chalk.green('--mock-config <path>')}   ${chalk.gray('Path to mocktail-cli.config.js')}
-  ${chalk.green('-d, --depth <number>')}   ${chalk.gray(`Nested relation depth - depth > 1 enables relations (default: "1")`)}
-  ${chalk.green('--no-nest')}              ${chalk.gray('Disable nested relations (flat structure)')}
-  ${chalk.green('--relations')}            ${chalk.gray('Enable automatic relation generation (works with any depth)')}
-  ${chalk.green('--dedupe')}               ${chalk.gray('Enable deduplication of records')}
-  ${chalk.green('--pretty')}               ${chalk.gray('Pretty-print JSON output (default: true)')}
-  ${chalk.green('--no-log')}               ${chalk.gray('Suppress console logs during mock generation')}
-  ${chalk.green('--seed')}                 ${chalk.gray('Insert mock data into DB')}
-  ${chalk.green('--seed-value <number>')}  ${chalk.gray('Seed value for reproducible data generation')}
-  ${chalk.green('--preset <type>')}        ${chalk.gray('Relation preset: blog, ecommerce, social')}
-  ${chalk.green('--force-logo')}           ${chalk.gray('Force show the logo animation even if shown before')}
-  ${chalk.green('-h, --help')}             ${chalk.gray('display help for command')}
-`;
-  };
-}
 
 // Show README content in terminal
 const docsCommand = program
@@ -892,6 +976,123 @@ docsCommand.action(() => {
     }
     const readmeContent = fs.readFileSync(readmePath, "utf-8");
     console.log(readmeContent);
+  });
+
+// Plugin management commands
+const pluginsCommand = program
+  .command("plugins")
+  .description("Manage plugins");
+
+pluginsCommand
+  .command("list")
+  .description("List all loaded plugins")
+  .action(() => {
+    console.log(pluginManager.getPluginInfo());
+  });
+
+pluginsCommand
+  .command("enable <name>")
+  .description("Enable a plugin")
+  .action((name: string) => {
+    pluginManager.enablePlugin(name);
+    console.log(`✅ Plugin ${name} enabled`);
+  });
+
+pluginsCommand
+  .command("disable <name>")
+  .description("Disable a plugin")
+  .action((name: string) => {
+    pluginManager.disablePlugin(name);
+    console.log(`❌ Plugin ${name} disabled`);
+  });
+
+pluginsCommand
+  .command("load <path>")
+  .description("Load a plugin from file or directory")
+  .action(async (pluginPath: string) => {
+    try {
+      if (fs.statSync(pluginPath).isDirectory()) {
+        await pluginManager.loadPluginsFromDirectory(pluginPath);
+      } else {
+        await pluginManager.loadPlugin(pluginPath);
+      }
+      console.log(`✅ Plugin(s) loaded from ${pluginPath}`);
+    } catch (error: any) {
+      console.error(`❌ Failed to load plugin: ${error.message}`);
+      process.exit(1);
+    }
+  });
+
+// Performance monitoring command
+const performanceCommand = program
+  .command("performance")
+  .description("Performance monitoring and optimization");
+
+performanceCommand
+  .command("status")
+  .description("Show current performance metrics")
+  .action(() => {
+    console.log(performanceOptimizer.getPerformanceReport());
+  });
+
+performanceCommand
+  .command("optimize")
+  .description("Optimize settings for current system")
+  .action(() => {
+    const memoryUsage = performanceOptimizer.getMemoryUsage();
+    const recommendedBatchSize = performanceOptimizer.calculateOptimalBatchSize(10000);
+    
+    console.log(`
+🔧 Performance Optimization Recommendations:
+  💾 Current Memory Usage: ${memoryUsage.used.toFixed(2)}MB (${memoryUsage.percentage.toFixed(1)}%)
+  📦 Recommended Batch Size: ${recommendedBatchSize}
+  ⚡ Performance Mode: ${performanceOptimizer.getMetrics().totalBatches > 0 ? 'Active' : 'Inactive'}
+  
+💡 Suggested CLI options:
+  --performance-mode --batch-size ${recommendedBatchSize} --memory-limit ${Math.max(1024, Math.round(memoryUsage.total * 0.8))}
+    `);
+  });
+
+// Enhanced relation detection command
+const relationsCommand = program
+  .command("relations")
+  .description("Analyze and detect relations in schemas");
+
+relationsCommand
+  .command("analyze <schema>")
+  .description("Analyze relations in a schema file")
+  .option("-t, --type <type>", "Schema type (auto-detected if not specified)")
+  .option("-c, --confidence <threshold>", "Confidence threshold (0-1)", "0.5")
+  .action(async (schemaPath: string, opts: any) => {
+    try {
+      const { RelationDetector } = await import('../src/relations/relationDetector');
+      const { SchemaRegistry } = await import('../src/schema-parsers/schemaRegistry');
+      
+      const schemaRegistry = new SchemaRegistry();
+      const models = await schemaRegistry.parseSchema(schemaPath, opts.type);
+      
+      const detector = new RelationDetector({
+        confidenceThreshold: parseFloat(opts.confidence)
+      });
+      
+      const relations = detector.detectRelations(models);
+      const averageConfidence = relations.reduce((sum, r) => sum + r.confidence, 0) / relations.length;
+      
+      console.log(`
+🔗 Relation Analysis Results:
+  📄 Schema: ${schemaPath}
+  🔍 Relations Found: ${relations.length}
+  📊 Average Confidence: ${(averageConfidence * 100).toFixed(1)}%
+  
+📋 Detected Relations:
+${relations.map(r => 
+  `  ${r.from} → ${r.to} (${r.field}) [${r.type}] - ${(r.confidence * 100).toFixed(1)}% confidence`
+).join('\n')}
+      `);
+    } catch (error: any) {
+      console.error(`❌ Failed to analyze relations: ${error.message}`);
+      process.exit(1);
+    }
   });
 
 // === Here is the key fix: print logo ONLY here once, before parsing commands ===
@@ -915,6 +1116,66 @@ docsCommand.action(() => {
 
   if (await shouldShowLogo(forceLogo, noLogo, noSubcommand)) {
     await printMocktailLogo();
+  }
+
+  // Custom colorful main help output
+  program.helpInformation = function (): string {
+    return `
+${chalk.hex('#00d8c9').bold('Usage:')} ${chalk.greenBright('mocktail-cli')} ${chalk.yellow('[options]')} ${chalk.yellow('[command]')}
+
+${chalk.cyan('Schema-aware mock data generator')}
+
+${chalk.magenta('Options:')}
+  ${chalk.green('-V, --version')}       ${chalk.gray('output the version number')}
+  ${chalk.green('--no-logo')}           ${chalk.gray('Suppress logo output globally')}
+  ${chalk.green('-q, --quiet')}         ${chalk.gray('Suppress output except errors globally')}
+  ${chalk.green('--force-logo')}        ${chalk.gray('Force show the logo animation even if shown before')}
+  ${chalk.green('-h, --help')}          ${chalk.gray('display help for command')}
+
+${chalk.magenta('Commands:')}
+  ${chalk.yellow('generate [options]')}  ${chalk.gray('Generate mock data for any schema (Prisma, GraphQL, JSON Schema, OpenAPI)')}
+  ${chalk.yellow('plugins [command]')}   ${chalk.gray('Manage plugins (list, enable, disable, load)')}
+  ${chalk.yellow('performance [cmd]')}   ${chalk.gray('Performance monitoring and optimization')}
+  ${chalk.yellow('relations [cmd]')}     ${chalk.gray('Analyze and detect relations in schemas')}
+  ${chalk.yellow('docs')}                ${chalk.gray('Show full README.md documentation in terminal')}
+  ${chalk.yellow('help [command]')}      ${chalk.gray('display help for command')}
+
+${chalk.cyan('For detailed documentation, run:')}
+  ${chalk.green('mocktail-cli docs')}
+${chalk.cyan('Or visit')} ${chalk.underline.blue('https://github.com/mockilo/mocktail-cli')}
+`;
+  };
+
+  // Override generate command help with colorful custom output
+  const generateCmd = program.commands.find(cmd => cmd.name() === "generate");
+  if (generateCmd) {
+    generateCmd.helpInformation = function (): string {
+      return `
+${chalk.hex('#00d8c9').bold('Usage:')} ${chalk.greenBright('mocktail-cli generate')} ${chalk.yellow('[options]')}
+
+${chalk.cyan('Generate mock data for any schema (Prisma, GraphQL, JSON Schema, OpenAPI)')}
+
+${chalk.magenta('Options:')}
+  ${chalk.green('-c, --count <number>')}   ${chalk.gray(`Number of records per model (default: "5")`)}
+  ${chalk.green('-o, --out <directory>')}  ${chalk.gray('Output directory')}
+  ${chalk.green('-f, --format <type>')}    ${chalk.gray(`Output format: json, sql, ts, csv (default: "json")`)}
+  ${chalk.green('-s, --schema <path>')}    ${chalk.gray(`Schema path (default: "./prisma/schema.prisma")`)}
+  ${chalk.green('-t, --type <type>')}      ${chalk.gray(`Schema type: prisma, graphql, json-schema, openapi, typescript, protobuf, avro, xml-schema, sql-ddl, mongoose, sequelize, joi, yup, zod (auto-detected if not specified)`)}
+  ${chalk.green('-m, --models <models>')}  ${chalk.gray('Comma-separated list of models (optional)')}
+  ${chalk.green('--mock-config <path>')}   ${chalk.gray('Path to mocktail-cli.config.js')}
+  ${chalk.green('-d, --depth <number>')}   ${chalk.gray(`Nested relation depth - depth > 1 enables relations (default: "1")`)}
+  ${chalk.green('--no-nest')}              ${chalk.gray('Disable nested relations (flat structure)')}
+  ${chalk.green('--relations')}            ${chalk.gray('Enable automatic relation generation (works with any depth)')}
+  ${chalk.green('--dedupe')}               ${chalk.gray('Enable deduplication of records')}
+  ${chalk.green('--pretty')}               ${chalk.gray('Pretty-print JSON output (default: true)')}
+  ${chalk.green('--no-log')}               ${chalk.gray('Suppress console logs during mock generation')}
+  ${chalk.green('--seed')}                 ${chalk.gray('Insert mock data into DB')}
+  ${chalk.green('--seed-value <number>')}  ${chalk.gray('Seed value for reproducible data generation')}
+  ${chalk.green('--preset <type>')}        ${chalk.gray('Relation preset: blog, ecommerce, social')}
+  ${chalk.green('--force-logo')}           ${chalk.gray('Force show the logo animation even if shown before')}
+  ${chalk.green('-h, --help')}             ${chalk.gray('display help for command')}
+`;
+    };
   }
 
   // Now parse commands normally, command actions will NOT print logo again

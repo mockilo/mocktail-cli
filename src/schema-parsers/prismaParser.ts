@@ -1,5 +1,6 @@
 import * as fs from 'fs';
-import type { Field, ModelsMap } from '../types';
+import type { LegacyModelsMap } from '../types';
+import { SchemaParser, SchemaField, SchemaModelsMap, SchemaValidation } from './baseSchemaParser';
 
 interface ParsedAttributes {
   relationFields?: string[];
@@ -39,15 +40,36 @@ function parseAttributes(attrStr: string): ParsedAttributes {
   return attrs;
 }
 
-export function parsePrismaSchema(schemaPath: string): ModelsMap {
-  const raw = fs.readFileSync(schemaPath, 'utf-8');
+export class PrismaSchemaParser implements SchemaParser {
+  getSchemaType(): string {
+    return 'prisma';
+  }
 
-  // Matches model blocks (non-greedy)
-  const modelRegex = /model\s+(\w+)\s*\{([\s\S]*?)\}/g;
+  getSupportedExtensions(): string[] {
+    return ['.prisma'];
+  }
 
-  const scalarTypes = new Set(['String','Int','Float','Boolean','DateTime','Json','BigInt','Decimal']);
-  const models: ModelsMap = {};
-  let m: RegExpExecArray | null;
+  canParse(filePath: string): boolean {
+    return filePath.endsWith('.prisma');
+  }
+
+  parseSchema(schemaPath: string): SchemaModelsMap {
+    return this.parsePrismaSchema(schemaPath);
+  }
+
+  validateSchema(schemaPath: string): SchemaValidation {
+    return this.validatePrismaSchema(schemaPath);
+  }
+
+  private parsePrismaSchema(schemaPath: string): SchemaModelsMap {
+    const raw = fs.readFileSync(schemaPath, 'utf-8');
+
+    // Matches model blocks (non-greedy)
+    const modelRegex = /model\s+(\w+)\s*\{([\s\S]*?)\}/g;
+
+    const scalarTypes = new Set(['String','Int','Float','Boolean','DateTime','Json','BigInt','Decimal']);
+    const models: SchemaModelsMap = {};
+    let m: RegExpExecArray | null;
   
   while ((m = modelRegex.exec(raw)) !== null) {
     const modelName = m[1];
@@ -67,7 +89,7 @@ export function parsePrismaSchema(schemaPath: string): ModelsMap {
       }
     }
 
-    const fields: Field[] = [];
+    const fields: SchemaField[] = [];
     for (const line of lines) {
       // skip full-line attributes or block endings
       if (line.startsWith('@') || line.startsWith('@@')) continue;
@@ -89,7 +111,7 @@ export function parsePrismaSchema(schemaPath: string): ModelsMap {
       const isScalar = scalarTypes.has(type);
       const isRelation = !isScalar;
 
-      const field: Field = {
+      const field: SchemaField = {
         name: name || '',
         type,
         rawType: rawType || '',
@@ -125,5 +147,42 @@ export function parsePrismaSchema(schemaPath: string): ModelsMap {
     };
   }
 
-  return models;
+    return models;
+  }
+
+  private validatePrismaSchema(schemaPath: string): SchemaValidation {
+    try {
+      const content = fs.readFileSync(schemaPath, 'utf8');
+      
+      // Basic validation checks
+      const hasDataSource = /datasource\s+db\s*\{/.test(content);
+      const hasGenerator = /generator\s+client\s*\{/.test(content);
+      const hasModels = /model\s+\w+\s*\{/.test(content);
+      
+      const errors: string[] = [];
+      if (!hasDataSource) errors.push('Missing datasource block');
+      if (!hasGenerator) errors.push('Missing generator block');
+      if (!hasModels) errors.push('No models found');
+      
+      return {
+        valid: errors.length === 0,
+        errors,
+        path: schemaPath,
+        schemaType: 'prisma'
+      };
+    } catch (err: any) {
+      return {
+        valid: false,
+        errors: [`Cannot read schema file: ${err.message}`],
+        path: schemaPath,
+        schemaType: 'prisma'
+      };
+    }
+  }
+}
+
+// Export the function for backward compatibility
+export function parsePrismaSchema(schemaPath: string): LegacyModelsMap {
+  const parser = new PrismaSchemaParser();
+  return parser.parseSchema(schemaPath) as LegacyModelsMap;
 }

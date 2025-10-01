@@ -1,0 +1,69 @@
+type User {
+  id: ID!
+  email: String!
+  name: String
+  age: Int
+  posts: [Post!]!
+  profile: UserProfile
+  comments: [Comment!]!
+  createdAt: String!
+  updatedAt: String!
+}
+
+type Post {
+  id: ID!
+  title: String!
+  content: String
+  published: Boolean!
+  authorId: ID!
+  author: User!
+  comments: [Comment!]!
+  tags: [String!]!
+  createdAt: String!
+  updatedAt: String!
+}
+
+type UserProfile {
+  id: ID!
+  bio: String
+  avatar: String
+  userId: ID!
+  user: User!
+}
+
+type Comment {
+  id: ID!
+  content: String!
+  postId: ID!
+  authorId: ID!
+  post: Post!
+  author: User!
+  createdAt: String!
+  updatedAt: String!
+}
+
+input CreateUserInput {
+  email: String!
+  name: String
+  age: Int
+}
+
+input CreatePostInput {
+  title: String!
+  content: String
+  published: Boolean
+  authorId: ID!
+  tags: [String!]
+}
+
+type Query {
+  users: [User!]!
+  user(id: ID!): User
+  posts: [Post!]!
+  post(id: ID!): Post
+}
+
+type Mutation {
+  createUser(input: CreateUserInput!): User!
+  createPost(input: CreatePostInput!): Post!
+}

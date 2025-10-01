@@ -1,0 +1,26 @@
+{
+  "type": "record",
+  "name": "User",
+  "namespace": "example",
+  "fields": [
+    {
+      "name": "id",
+      "type": "string"
+    },
+    {
+      "name": "name",
+      "type": "string"
+    },
+    {
+      "name": "email",
+      "type": "string"
+    },
+    {
+      "name": "posts",
+      "type": {
+        "type": "array",
+        "items": "Post"
+      }
+    }
+  ]
+}

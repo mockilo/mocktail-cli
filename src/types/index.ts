@@ -1,6 +1,10 @@
 // Core types for Mocktail CLI
 
-export interface Field {
+// Re-export schema parser types for backward compatibility
+export type { SchemaField as Field, SchemaModel as Model, SchemaModelsMap as ModelsMap } from '../schema-parsers/baseSchemaParser';
+
+// Legacy types for backward compatibility
+export interface LegacyField {
   name: string;
   type: string;
   rawType: string;
@@ -16,14 +20,14 @@ export interface Field {
   relationName?: string | undefined;
 }
 
-export interface Model {
+export interface LegacyModel {
   name: string;
-  fields: Field[];
+  fields: LegacyField[];
   modelLevelUniques: string[][];
 }
 
-export interface ModelsMap {
-  [modelName: string]: Model;
+export interface LegacyModelsMap {
+  [modelName: string]: LegacyModel;
 }
 
 export interface GenerateOptions {
@@ -70,17 +74,13 @@ export interface SeedData {
   data: Record<string, Record<string, any>[]>;
 }
 
-export interface SchemaValidation {
-  valid: boolean;
-  errors: string[];
-  path: string;
-}
 
 export interface GenerateCommandOptions {
   count: string;
   out?: string;
   format: string;
   schema: string;
+  type?: string;
   models?: string;
   mockConfig?: string;
   depth: string;
@@ -94,6 +94,7 @@ export interface GenerateCommandOptions {
   seedValue?: string;
   preset?: string;
   forceLogo?: boolean;
+  batch?: boolean;
 }
 
 export interface GlobalOptions {
@@ -142,6 +143,9 @@ export interface Dirent {
 export interface ProcessEnv {
   [key: string]: string | undefined;
 }
+
+// Re-export SchemaValidation separately to avoid conflicts
+export type { SchemaValidation } from '../schema-parsers/baseSchemaParser';
 
 export interface Process {
   env: ProcessEnv;

@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package example;
+
+message User {
+  string id = 1;
+  string name = 2;
+  string email = 3;
+  repeated Post posts = 4;
+}
+
+message Post {
+  string id = 1;
+  string title = 2;
+  string content = 3;
+  string author_id = 4;
+  bool published = 5;
+  int64 created_at = 6;
+}
+
+message Comment {
+  string id = 1;
+  string content = 2;
+  string post_id = 3;
+  string author_id = 4;
+  int64 created_at = 5;
+}

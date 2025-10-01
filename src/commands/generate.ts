@@ -2,7 +2,7 @@ console.log("🛠️ Running generate.ts from:", __filename);
 
 import * as path from "path";
 import * as fs from "fs";
-import { parsePrismaSchema } from "../schema-parsers/prismaParser";
+// import { parsePrismaSchema } from "../schema-parsers/prismaParser";
 import { generateField } from "../generators/baseGenerators";
 import { spawn } from "child_process";
 import type { ModelsMap } from '../types';
@@ -15,10 +15,19 @@ interface GenerateOptions {
   count: number;
   seed: boolean;
   output: string;
+  models: ModelsMap;
+  format: string;
+  depth: number;
+  nest: boolean;
+  relations: boolean;
+  dedupe: boolean;
+  pretty: boolean;
+  noLog: boolean;
+  seedValue?: string | undefined;
+  preset?: string | undefined;
 }
 
-async function runGenerate({ schema, count, seed, output }: GenerateOptions): Promise<void> {
-  const models: ModelsMap = parsePrismaSchema(schema);
+async function runGenerate({ schema, count, seed, output, models, format: _format, depth: _depth, nest: _nest, relations: _relations, dedupe: _dedupe, pretty: _pretty, noLog: _noLog, seedValue: _seedValue, preset: _preset }: GenerateOptions): Promise<void> {
   console.log("Parsed Models and Fields:");
   console.log(JSON.stringify(models, null, 2));
   console.log(`Generating ${count} records per model...\n`);
