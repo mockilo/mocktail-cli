@@ -2,7 +2,11 @@
 
 **Note:** `.env` file was sanitized in this package release. Use `.env.example` to set `DATABASE_URL` before running anything that needs a DB.
 
-[![npm version](https://img.shields.io/npm/v/mocktail-cli.svg)](https://www.npmjs.com/package/mocktail-cli)
+
+![npm version](https://img.shields.io/npm/v/mocktail-cli.svg)
+![License](https://img.shields.io/npm/l/mocktail-cli)
+![Downloads](https://img.shields.io/npm/dt/mocktail-cli)
+
 
 > **Mocktail‑CLI** — The schema‑aware mock data generator for developers. Generate realistic, relation‑aware mock data from your Prisma schema directly from the command line.
 
@@ -76,7 +80,8 @@ npx mocktail-cli generate \
   --seed
 ```
 
-* `--depth 2` — set how deep nested relations go.
+* `--depth 2` — set how deep nested relations go (depth > 1 enables relations).
+* `--relations` — enable automatic relation generation (works with any depth).
 * `--out` — output to a file or stdout.
 * `--preset blog` — generate domain-specific data.
 
@@ -84,8 +89,9 @@ npx mocktail-cli generate \
 
 ## CLI reference (examples)
 
-```
-# Generate 20 Users
+### Basic usage
+```bash
+# Generate 20 Users (flat records)
 mocktail-cli generate --models User --count 20
 
 # Generate Users and Posts with specific counts
@@ -96,22 +102,59 @@ mocktail-cli generate --format sql --out ./seeds
 
 # Use a preset for ecommerce data
 mocktail-cli generate --preset ecommerce --count 100
+```
 
-#Full option list
+### Understanding --depth and --relations flags
 
-Option                      	Alias             	Description
--c, --count <number>	                          	Number of records per model (default: 5)
--o, --out <directory>		                          Output directory
--f, --format <type>		                            Output format: json, sql, ts, csv (default: json)
--s, --schema <path>		                            Prisma schema path (default: ./prisma/schema.prisma, auto-detect enabled)
--m, --models <models>	                          	Comma-separated list of models (optional)
---mock-config <path>	                           	Path to mocktail-cli.config.js
--d, --depth <number>	                    	      Nested relation depth (default: 1)
---seed	                                        	Insert generated data into DB
---seed-value <number>		                          Seed value for reproducible data generation
---preset <type>	                                	Relation preset: blog, ecommerce, social
---force-logo		                                  Force show the logo animation even if shown before
--h, --help		                                    Display help with usage and examples
+The `--depth` and `--relations` flags work independently to control relation generation:
+
+```bash
+# Flat records (no relations)
+mocktail-cli generate --count 5
+# or
+mocktail-cli generate --depth 1 --count 5
+
+# Nested relations with depth 2
+mocktail-cli generate --depth 2 --count 5
+
+# Enable relations with default depth (2)
+mocktail-cli generate --relations --count 5
+
+# Both flags work together
+mocktail-cli generate --relations --depth 3 --count 5
+
+# Disable relations even with depth > 1
+mocktail-cli generate --depth 2 --no-nest --count 5
+```
+
+**Key points:**
+- `--depth 1` = Flat records (no nesting)
+- `--depth 2+` = Enables relations with specified nesting level
+- `--relations` = Enables relations with default depth of 2
+- `--no-nest` = Disables relations regardless of other flags
+
+# Full option list
+
+| Option | Alias | Description |
+|--------|-------|-------------|
+| `-c, --count <number>` | | Number of records per model (default: 5) |
+| `-o, --out <directory>` | | Output directory |
+| `-f, --format <type>` | | Output format: json, sql, ts, csv (default: json) |
+| `-s, --schema <path>` | | Prisma schema path (default: ./prisma/schema.prisma, auto-detect enabled) |
+| `-m, --models <models>` | | Comma-separated list of models (optional) |
+| `--mock-config <path>` | | Path to mocktail-cli.config.js |
+| `-d, --depth <number>` | | Nested relation depth - depth > 1 enables relations (default: 1) |
+| `--no-nest` | | Disable nested relations (flat structure) |
+| `--relations` | | Enable automatic relation generation (works with any depth) |
+| `--dedupe` | | Enable deduplication of records |
+| `--pretty` | | Pretty-print JSON output (default: true) |
+| `--no-pretty` | | Disable pretty-printing JSON output |
+| `--no-log` | | Suppress console logs during mock generation |
+| `--seed` | | Insert generated data into DB |
+| `--seed-value <number>` | | Seed value for reproducible data generation |
+| `--preset <type>` | | Relation preset: blog, ecommerce, social |
+| `--force-logo` | | Force show the logo animation even if shown before |
+| `-h, --help` | | Display help with usage and examples |
 
 ```
 ---
@@ -136,17 +179,22 @@ module.exports = {
 
 ### Frontend prototyping
 
-1. Generate realistic data: `mocktail-cli generate --count 50`
+1. Generate realistic data with relations: `mocktail-cli generate --relations --count 50`
 2. Feed the output to your mock API server.
 
 ### Testing with consistent seeds
 
-1. Generate with seed: `mocktail-cli generate --seed --seed-value 42` 
+1. Generate with seed: `mocktail-cli generate --relations --seed --seed-value 42` 
 2. Run tests with consistent fixtures.
+
+### Deep nested data for complex UIs
+
+1. Generate deeply nested data: `mocktail-cli generate --depth 3 --count 20`
+2. Perfect for testing complex component hierarchies.
 
 ### Domain-specific seeding
 
-`mocktail-cli generate --preset social --count 100 --seed`
+`mocktail-cli generate --preset social --relations --count 100 --seed`
 
 ---
 
@@ -179,9 +227,10 @@ Takeaway:
 
 ## Roadmap
 
-* v1.0: CLI complete with flags for depth, output formats, custom config.
+* v1.0: ✅ CLI complete with flags for depth, output formats, custom config.
 * v1.1: ✅ Schema auto-detection, advanced relation presets (blog, ecommerce, social).
-* v1.2+: Integration with Mock-Verse for API mocking, seeding, and team workflows.
+* v1.2: Schema-aware meaning all schema(for now we have done Prisma)
+* v1.3+: Integration with Mockilo for API mocking, seeding, and team workflows.
 
 ---
 

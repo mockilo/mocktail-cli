@@ -1,0 +1,74 @@
+{
+    "name": "@mockilo/mocktail-cli",
+    "version": "1.2.0",
+    "description": "**Craft your data cocktail — realistic mock data, shaken not stirred.**",
+    "main": "dist/bin/mocktail-cli.js",
+    "types": "dist/bin/mocktail-cli.d.ts",
+    "type": "commonjs",
+    "scripts": {
+      "test": "jest",
+      "start": "node ./dist/bin/mocktail-cli.js",
+      "lint": "echo \"No lint configured\""
+    },
+    "keywords": [
+      "mock",
+      "api",
+      "schema",
+      "faker",
+      "prisma",
+      "CLI",
+      "mocktail",
+      "mocktail-cli",
+      "mockilo",
+      "ORM",
+      "Prisma",
+      "prisma2",
+      "database",
+      "JavaScript",
+      "JS",
+      "TypeScript",
+      "TS",
+      "Node.js",
+      "Node",
+      "Nodejs",
+      "NodeJS"
+    ],
+    "author": "kilopal",
+    "license": "BSL-1.1",
+    "dependencies": {
+      "@faker-js/faker": "^9.9.0",
+      "@prisma/client": "^6.13.0",
+      "chalk": "^4.1.2",
+      "commander": "^14.0.0",
+      "graphql": "^16.11.0",
+      "nanoid": "^5.1.5",
+      "ora": "^8.2.0"
+    },
+    "publishConfig": {
+      "access": "public"
+    },
+    "bin": {
+      "mocktail-cli": "dist/bin/mocktail-cli.js"
+    },
+    "engines": {
+      "node": ">=18.18.0"
+    },
+    "devDependencies": {
+      "@eslint/js": "^9.33.0",
+      "eslint": "^9.33.0",
+      "globals": "^16.3.0",
+      "jest": "^30.0.5"
+    },
+    "repository": {
+      "type": "git",
+      "url": "git+https://github.com/mockilo/mocktail-cli.git"
+    },
+    "bugs": {
+      "url": "https://github.com/mockilo/mocktail-cli/issues"
+    },
+    "homepage": "https://github.com/mockilo/mocktail-cli#readme",
+    "directories": {
+      "test": "tests"
+    }
+  }
+  
