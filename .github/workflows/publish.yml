@@ -29,7 +29,14 @@ jobs:
           NPM_TOKEN: ${{ secrets.MOCKTAIL_CLI_CI_TOKEN }}
 
 
-      - name: Publish to npm
+      - name: Publish unscoped package (mocktail-cli)
         run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.MOCKTAIL_CLI_CI_TOKEN }}
+
+      - name: Publish scoped package (@mockilo/mocktail-cli)
+        run: |
+          cp package.scoped.json package.json
+          npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.MOCKTAIL_CLI_CI_TOKEN }}
