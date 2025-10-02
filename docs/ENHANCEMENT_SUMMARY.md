@@ -1,17 +1,99 @@
 # Mocktail-CLI Enhancement Summary
 
-This document summarizes all the enhancements implemented in Mocktail-CLI v1.3+, including enhanced relation detection, better error messages, performance optimization, plugin system, improved documentation, and UI/UX improvements.
+This document summarizes all the enhancements implemented in Mocktail-CLI v1.4+, including the new extensible type system, advanced circular dependency resolution, enhanced relation detection, better error messages, performance optimization, plugin system, improved documentation, and UI/UX improvements.
 
 ## 🎯 Overview
 
 All requested enhancements have been successfully implemented:
 
+- ✅ **NEW: Extensible Type System** - Custom scalars, formats, context-aware generation
+- ✅ **NEW: Circular Dependency Resolution** - Smart cycle detection and resolution strategies
 - ✅ **Enhanced relation detection** - Smarter foreign key recognition
 - ✅ **Better error messages** - More helpful debugging information  
 - ✅ **Performance optimization** - Handle larger datasets efficiently
 - ✅ **Plugin system** - Extensibility for custom generators
 - ✅ **Documentation** - Better examples and guides
 - ✅ **UI/UX improvements** - Enhanced CLI experience
+
+## 🎯 NEW: Extensible Type System (v1.4.0)
+
+### Features Implemented
+
+1. **Custom Scalar Support**
+   - GraphQL custom scalars (`EmailAddress`, `URL`, `JSON`, `DateTime`, etc.)
+   - Automatic recognition of 15+ common custom scalar types
+   - Context-aware generation (emails match user names)
+
+2. **Format-Based Generation**
+   - JSON Schema format support (`email`, `uri`, `date-time`, `uuid`, etc.)
+   - OpenAPI format specifications
+   - 20+ built-in format generators
+
+3. **Smart Type Detection**
+   - 4-tier priority matching system
+   - Pattern-based field name recognition
+   - Contextual field generation
+   - Extensible plugin architecture
+
+4. **Built-in Generators**
+   - 50+ realistic data generators
+   - Email, phone, URL, UUID, dates, addresses
+   - Context-aware relationships
+   - Configurable generation rules
+
+### Code Examples
+
+```typescript
+// Before v1.4.0: Custom scalars treated as relations
+EmailAddress -> null (treated as relation to "EmailAddress" model)
+
+// After v1.4.0: Smart type detection and generation
+EmailAddress -> "john.doe@example.com" (realistic email)
+URL -> "https://example.com" (valid URL)
+JSON -> { key: "data", value: "content" } (structured object)
+```
+
+## 🔄 NEW: Advanced Circular Dependency Resolution (v1.4.0)
+
+### Features Implemented
+
+1. **Smart Cycle Detection**
+   - Comprehensive dependency graph analysis
+   - Detection of all cycle types (self-reference, simple, complex)
+   - Strength analysis (weak vs strong cycles)
+   - Detailed cycle reporting
+
+2. **Multiple Resolution Strategies**
+   - **Smart-break**: Break at optional relationships (default)
+   - **Lazy-loading**: Generate partial objects first
+   - **Partial-references**: ID-only references
+   - Extensible strategy system
+
+3. **Cycle Classification**
+   - Self-reference cycles (User → User)
+   - Simple cycles (User ↔ Post)
+   - Complex cycles (User → Post → Comment → User)
+   - Strength analysis (optional vs required relationships)
+
+4. **Detailed Reporting**
+   - Real-time cycle detection output
+   - Applied resolution strategy information
+   - Deferred relation tracking
+   - Performance impact analysis
+
+### Code Examples
+
+```bash
+# Before v1.4.0: Basic topological sort, cycles cause issues
+User -> Post -> Comment -> User  # Unresolved cycle
+
+# After v1.4.0: Smart cycle resolution with reporting
+🔄 Detected 3 circular dependencies:
+  • self-reference cycle: User → User (weak)
+  • complex-cycle cycle: User → Post → Comment → User (strong)
+🛠️ Applied resolution strategy: smart-break
+  • Deferred 2 relations for later population
+```
 
 ## 🔗 Enhanced Relation Detection
 

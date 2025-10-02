@@ -121,8 +121,16 @@ export class GraphQLSchemaParser implements SchemaParser {
       }
       
       // Determine if it's a scalar or relation
-      const scalarTypes = new Set(['String', 'Int', 'Float', 'Boolean', 'ID', 'Date', 'DateTime']);
-      const isScalar = scalarTypes.has(baseType);
+      const builtInScalarTypes = new Set(['String', 'Int', 'Float', 'Boolean', 'ID']);
+      const commonCustomScalars = new Set([
+        'Date', 'DateTime', 'Time', 'JSON', 'UUID', 'URL', 'EmailAddress', 
+        'PhoneNumber', 'PostalCode', 'CountryCode', 'Upload', 'BigInt'
+      ]);
+      
+      // Check if it's a built-in scalar, custom scalar, or relation
+      const isBuiltInScalar = builtInScalarTypes.has(baseType);
+      const isCustomScalar = commonCustomScalars.has(baseType);
+      const isScalar = isBuiltInScalar || isCustomScalar;
       const isRelation = !isScalar;
       
       const field: SchemaField = {

@@ -4,6 +4,7 @@ export interface SchemaField {
   name: string;
   type: string;
   rawType: string;
+  format?: string; // For JSON Schema formats, GraphQL directives, etc.
   isArray: boolean;
   isOptional: boolean;
   isScalar: boolean;

@@ -105,20 +105,24 @@ export class JsonSchemaParser implements SchemaParser {
     const isArray = prop.type === 'array';
     const isOptional = !isRequired;
     
+    // Extract format information for better type generation
+    const format = prop.format;
+    
     // For arrays, get the item type
     let baseType = type;
     if (isArray && prop.items) {
       baseType = this.mapJsonSchemaType(prop.items.type || 'string');
     }
     
-    const scalarTypes = new Set(['string', 'number', 'integer', 'boolean', 'null']);
-    const isScalar = scalarTypes.has(baseType);
+    const scalarTypes = new Set(['string', 'number', 'integer', 'boolean', 'null', 'object']);
+    const isScalar = scalarTypes.has(baseType) || baseType.toLowerCase() === 'string' || baseType.toLowerCase() === 'number';
     const isRelation = !isScalar;
     
     return {
       name,
       type: baseType,
       rawType: prop.type || 'string',
+      format, // Add format information for extensible type system
       isArray,
       isOptional,
       isScalar,

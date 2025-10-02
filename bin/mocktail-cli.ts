@@ -16,11 +16,12 @@ import { errorHandler } from "../src/utils/errorHandler";
 import { performanceOptimizer } from "../src/utils/performanceOptimizer";
 import { pluginManager } from "../src/plugins/pluginManager";
 import { outputFormatter } from "../src/utils/outputFormatter";
+import { circularDependencyResolver } from "../src/utils/circularDependencyResolver";
 // Logo
 import printMocktailLogo from '../src/printMocktailLogo';
 
 // Read version from package.json
-const packageJson = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'package.json'), 'utf8'));
+const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '../package.json'), 'utf8'));
 const version = packageJson.version;
 
 import type {
@@ -519,7 +520,29 @@ generateCommand.action(async (opts: GenerateCommandOptions) => {
         return ordered;
       }
 
-      const seedingOrder: Model[] = topologicalOrder(filteredModels);
+      // Use advanced circular dependency resolution
+      if (!globalOpts.quiet && !opts.noLog) spinner.start("Analyzing dependencies and resolving cycles...");
+      
+      const dependencyResult = circularDependencyResolver.resolveDependencies(filteredModels);
+      const seedingOrder: Model[] = dependencyResult.generationOrder;
+      
+      if (dependencyResult.cycles.length > 0) {
+        if (!globalOpts.quiet && !opts.noLog) {
+          console.log(`\n🔄 Detected ${dependencyResult.cycles.length} circular dependencies:`);
+          dependencyResult.cycles.forEach(cycle => {
+            console.log(`  • ${cycle.type} cycle: ${cycle.nodes.join(' → ')} (${cycle.strength})`);
+          });
+          
+          if (dependencyResult.resolutionPlan) {
+            console.log(`\n🛠️  Applied resolution strategy: ${dependencyResult.resolutionPlan.strategy}`);
+            if (dependencyResult.resolutionPlan.deferredRelations.length > 0) {
+              console.log(`  • Deferred ${dependencyResult.resolutionPlan.deferredRelations.length} relations for later population`);
+            }
+          }
+        }
+      }
+      
+      if (!globalOpts.quiet && !opts.noLog) spinner.succeed("Dependencies analyzed and cycles resolved.");
 
       const seedDataByModel: Record<string, Record<string, any>[]> = {};
       if (!globalOpts.quiet && !opts.noLog) spinner.succeed("Order prepared. Starting data generation...");

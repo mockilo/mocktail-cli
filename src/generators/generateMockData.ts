@@ -1,6 +1,8 @@
 import { generateField } from './baseGenerators';
 import { faker } from '@faker-js/faker';
 // import { customAlphabet } from 'nanoid'; // Unused import
+import { extensibleTypeSystem, GenerationContext } from '../types/extensibleTypeSystem';
+import { circularDependencyResolver } from '../utils/circularDependencyResolver';
 import type { Model, GenerateOptions, GeneratedData, RelationPresets } from '../types';
 
 // const nanoid = customAlphabet(
@@ -119,10 +121,22 @@ export function generateMockData(model: Model, options: GenerateOptions = {}): G
         continue;
       }
 
-      // Generate scalars
+      // Generate scalars using extensible type system
       if (field.isScalar) {
-        const v = generateField(field); // Pass the whole field object
-        rec[field.name] = sqlMode ? safeValue(v, { sqlMode }) : v;
+        const context: GenerationContext = {
+          modelName: model.name,
+          recordIndex: i,
+          relatedFields: rec, // Pass already generated fields for context
+          schemaType: 'unknown' // This could be passed from the parser
+        };
+        
+        // Try extensible type system first
+        const v = extensibleTypeSystem.generateValue(field, context);
+        
+        // Fallback to original generator if extensible system returns null
+        const finalValue = v !== null ? v : generateField(field);
+        
+        rec[field.name] = sqlMode ? safeValue(finalValue, { sqlMode }) : finalValue;
         continue;
       }
 

@@ -7,13 +7,22 @@
 
 > **Mocktail‑CLI** — The comprehensive schema‑aware mock data generator for developers. Generate realistic, relation‑aware mock data from any schema type directly from the command line with enhanced relation detection, performance optimization, and extensible plugin system.
 
+
+[![npm version](https://img.shields.io/npm/v/mocktail-cli.svg)](https://www.npmjs.com/package/mocktail-cli)
+![License](https://img.shields.io/npm/l/mocktail-cli)
+![Downloads](https://img.shields.io/npm/dt/mocktail-cli)
+![Node.js Version](https://img.shields.io/node/v/mocktail-cli)
+[![CI](https://github.com/mockilo/mocktail-cli/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/mockilo/mocktail-cli/actions/workflows/ci.yml)
+
+
+
 ---
 
 ## Table of contents
 
 1. [What is Mocktail‑CLI?](#what-is-mocktail-cli)
 2. [Key features](#key-features)
-3. [Enhanced features (v1.3+)](#enhanced-features-v13)
+3. [Enhanced features (v1.4+)](#enhanced-features-v14)
 4. [Why use Mocktail‑CLI?](#why-use-mocktail-cli)
 5. [Quickstart](#quickstart)
 6. [CLI reference (examples)](#cli-reference-examples)
@@ -48,7 +57,21 @@ Mocktail-CLI is the most comprehensive schema-aware CLI tool for generating real
 
 ---
 
-## Enhanced features (v1.3+)
+## Enhanced features (v1.4+)
+
+### 🎯 **NEW: Extensible Type System**
+* **Custom scalar support** — GraphQL custom scalars (`EmailAddress`, `URL`, `JSON`, `DateTime`, etc.)
+* **Format-based generation** — JSON Schema formats (`email`, `uri`, `date-time`, `uuid`, etc.)
+* **Context-aware generation** — Email addresses match user names, realistic relationships
+* **50+ built-in generators** — Email, phone, URL, UUID, dates, addresses, and more
+* **Plugin architecture** — Easy to register custom type generators
+
+### 🔄 **NEW: Advanced Circular Dependency Resolution**
+* **Smart cycle detection** — Finds all circular dependencies in complex schemas
+* **Multiple resolution strategies** — Smart-break, lazy-loading, partial-references
+* **Cycle classification** — Self-reference, simple, and complex cycle types
+* **Strength analysis** — Weak (optional) vs strong (required) relationship cycles
+* **Detailed reporting** — Shows detected cycles and applied resolution strategies
 
 ### 🧠 Enhanced Relation Detection
 * **Multi-strategy detection** — Direct references, foreign keys, naming conventions, schema annotations, and inference
@@ -236,6 +259,62 @@ mocktail-cli generate --schema ./my-schema
 
 # Explicitly specify schema type
 mocktail-cli generate --schema ./my-schema --type typescript
+```
+
+---
+
+## v1.4.0 New Features Examples
+
+### Custom Scalar Support (GraphQL)
+
+```graphql
+# schema.graphql
+scalar EmailAddress
+scalar URL
+scalar JSON
+scalar DateTime
+
+type User {
+  id: UUID!
+  email: EmailAddress!        # Generates: "john.doe@example.com"
+  website: URL               # Generates: "https://example.com"
+  metadata: JSON             # Generates: { key: "data", value: "content" }
+  createdAt: DateTime!       # Generates: "2024-01-15T10:30:00Z"
+}
+```
+
+```bash
+# Generate with custom scalars
+mocktail-cli generate --schema schema.graphql --count 5
+```
+
+### Format Support (JSON Schema)
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "email": { "type": "string", "format": "email" },
+    "website": { "type": "string", "format": "uri" },
+    "birthDate": { "type": "string", "format": "date" },
+    "lastLogin": { "type": "string", "format": "date-time" },
+    "id": { "type": "string", "format": "uuid" }
+  }
+}
+```
+
+### Circular Dependency Resolution
+
+```bash
+# Complex schema with cycles
+mocktail-cli generate --schema complex-schema.graphql --count 3
+
+# Output shows cycle detection:
+# 🔄 Detected 3 circular dependencies:
+#   • self-reference cycle: User → User (weak)
+#   • complex-cycle cycle: User → Post → Comment → User (strong)
+# 🛠️ Applied resolution strategy: smart-break
+#   • Deferred 2 relations for later population
 ```
 
 ---
@@ -547,6 +626,8 @@ Takeaway:
   * **NEW in v1.3**: Extensible plugin system with built-in plugins
   * **NEW in v1.3**: Better error messages with contextual information
   * **NEW in v1.3**: Enhanced UI/UX with progress tracking and better output
+  * **NEW in v1.4**: Extensible type system with custom scalar support
+  * **NEW in v1.4**: Advanced circular dependency resolution with smart strategies
 
 ## Roadmap
 
@@ -554,8 +635,11 @@ Takeaway:
 * v1.1: ✅ Schema auto-detection, advanced relation presets (blog, ecommerce, social).
 * v1.2: ✅ Multi-schema support (Prisma, GraphQL, JSON Schema, OpenAPI)
 * v1.3: ✅ **Enhanced relation detection, performance optimization, plugin system, better error messages, UI/UX improvements**
-* v1.4+: Integration with Mockilo for API mocking, seeding, and team workflows.
-* v1.5+: Machine learning-powered relation detection, advanced plugins, web interface.
+* v1.4: ✅ **Extensible type system (custom scalars, formats), advanced circular dependency resolution**
+* v1.5: 🚧 Integration with Mockilo for API mocking, seeding, and team workflows
+* v1.6: 🔮 Machine learning-powered relation detection and smart data generation
+* v1.7: 🔮 Advanced plugins ecosystem and web interface
+* v2.0: 🔮 Real-time collaboration features and cloud integration
 
 ---
 

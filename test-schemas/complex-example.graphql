@@ -1,0 +1,79 @@
+# Complex GraphQL schema with custom scalars and circular dependencies
+
+scalar EmailAddress
+scalar URL
+scalar JSON
+scalar DateTime
+scalar PhoneNumber
+scalar UUID
+
+type User {
+  id: UUID!
+  email: EmailAddress!
+  name: String!
+  firstName: String!
+  lastName: String!
+  website: URL
+  phone: PhoneNumber
+  bio: String
+  metadata: JSON
+  createdAt: DateTime!
+  
+  # Circular dependencies
+  posts: [Post!]!
+  comments: [Comment!]!
+  followers: [User!]!
+  following: [User!]!
+  
+  # Self-reference
+  manager: User
+  directReports: [User!]!
+}
+
+type Post {
+  id: UUID!
+  title: String!
+  content: String!
+  publishedAt: DateTime
+  
+  # Relations that create cycles
+  author: User!
+  comments: [Comment!]!
+  categories: [Category!]!
+}
+
+type Comment {
+  id: UUID!
+  content: String!
+  createdAt: DateTime!
+  
+  # Creates User -> Post -> Comment -> User cycle
+  author: User!
+  post: Post!
+  
+  # Self-reference for nested comments
+  parent: Comment
+  replies: [Comment!]!
+}
+
+type Category {
+  id: UUID!
+  name: String!
+  description: String
+  
+  # Self-reference cycle
+  parent: Category
+  children: [Category!]!
+  
+  # Many-to-many with posts
+  posts: [Post!]!
+}
+
+type Team {
+  id: UUID!
+  name: String!
+  description: String
+  
+  # Many-to-many relationship
+  members: [User!]!
+}
