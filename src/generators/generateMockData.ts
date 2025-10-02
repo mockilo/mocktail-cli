@@ -1,5 +1,6 @@
 import { generateField } from './baseGenerators';
 import { faker } from '@faker-js/faker';
+import { getLocalizedFaker } from '../utils/localeManager';
 // import { customAlphabet } from 'nanoid'; // Unused import
 import { extensibleTypeSystem, GenerationContext } from '../types/extensibleTypeSystem';
 import { circularDependencyResolver } from '../utils/circularDependencyResolver';
@@ -316,7 +317,7 @@ function generateCustomRelations(model: Model, preset: string, relationData: Rec
   for (const [relationName, config] of Object.entries(modelConfig || {})) {
     if (config.count) {
       // Generate custom count for this relation
-      const count = faker.number.int(config.count);
+      const count = getLocalizedFaker().number.int(config.count);
       // Store the count for later use in relation generation
       customData[relationName] = { count };
     }

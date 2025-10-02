@@ -20,7 +20,7 @@ const prisma = new PrismaClient();
     for (const modelName of order) {
       const modelKey = modelName.charAt(0).toLowerCase() + modelName.slice(1);
       if (typeof prisma[modelKey]?.createMany === "function") {
-        await prisma[modelKey].createMany({ data: seedData[modelName], skipDuplicates: true });
+        await prisma[modelKey].createMany({ data: seedData[modelName] });
         console.log(`✅ Seeded ${seedData[modelName]?.length || 0} records into ${modelName}`);
       } else {
         console.warn(`⚠️ No createMany method found for model: ${modelName}`);

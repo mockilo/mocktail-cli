@@ -17,6 +17,7 @@ import { performanceOptimizer } from "../src/utils/performanceOptimizer";
 import { pluginManager } from "../src/plugins/pluginManager";
 import { outputFormatter } from "../src/utils/outputFormatter";
 import { circularDependencyResolver } from "../src/utils/circularDependencyResolver";
+import { createLocalizedFaker, setGlobalLocale } from "../src/utils/localeManager";
 // Logo
 import printMocktailLogo from '../src/printMocktailLogo';
 
@@ -324,6 +325,7 @@ const generateCommand = program
   .option("--no-log", "Suppress console logs during mock generation")
   .option("--seed", "Insert mock data into DB")
   .option("--seed-value <number>", "Seed value for reproducible data generation")
+  .option("--locale <locale>", "Locale for generating culturally appropriate data (e.g., en, es, fr, ja)", "en")
   .option("--preset <type>", "Relation preset: blog, ecommerce, social");
 
 generateCommand.action(async (opts: GenerateCommandOptions) => {
@@ -543,6 +545,13 @@ generateCommand.action(async (opts: GenerateCommandOptions) => {
       }
       
       if (!globalOpts.quiet && !opts.noLog) spinner.succeed("Dependencies analyzed and cycles resolved.");
+
+      // Set faker locale if provided (for main data generation)
+      const localeConfig = await createLocalizedFaker(opts.locale || 'en');
+      setGlobalLocale(localeConfig);
+      if (!globalOpts.quiet && !opts.noLog && opts.locale) {
+        console.log(`🌍 Using locale: ${localeConfig.locale}`);
+      }
 
       const seedDataByModel: Record<string, Record<string, any>[]> = {};
       if (!globalOpts.quiet && !opts.noLog) spinner.succeed("Order prepared. Starting data generation...");
@@ -887,6 +896,17 @@ generateCommand.action(async (opts: GenerateCommandOptions) => {
           if (!globalOpts.quiet && !opts.noLog) console.log(`🎲 Using seed value: ${seedValue}`);
         }
 
+        // Set faker locale if provided
+        if (opts.locale) {
+          try {
+            // Modern faker.js v9+ uses locale-specific imports
+            // For now, we'll use the locale parameter in individual faker calls
+            if (!globalOpts.quiet && !opts.noLog) console.log(`🌍 Using locale: ${opts.locale}`);
+          } catch (error) {
+            console.warn(`⚠️ Locale '${opts.locale}' not supported, falling back to 'en'`);
+          }
+        }
+
         // Write seed JSON into the Prisma project
         const prismaProject = path.resolve(path.dirname(schemaPath), "..");
         const seedFile = path.join(prismaProject, "__mocktail_seed.json");
@@ -927,7 +947,7 @@ generateCommand.action(async (opts: GenerateCommandOptions) => {
           "    for (const modelName of order) {",
           "      const modelKey = modelName.charAt(0).toLowerCase() + modelName.slice(1);",
           "      if (typeof prisma[modelKey]?.createMany === 'function') {",
-          "        await prisma[modelKey].createMany({ data: data[modelName], skipDuplicates: true });",
+          "        await prisma[modelKey].createMany({ data: data[modelName] });",
           "        console.log(`✅ Seeded ${data[modelName].length} records into ${modelName}`);",
           "      } else {",
           "        console.warn(`⚠️ No createMany method found for model: ${modelName}`);",

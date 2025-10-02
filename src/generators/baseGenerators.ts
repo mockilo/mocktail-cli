@@ -1,36 +1,37 @@
 import { faker } from "@faker-js/faker";
+import { getLocalizedFaker } from '../utils/localeManager';
 import type { Field } from '../types';
 
 // Smart field name detection
 const fieldNameGenerators: Record<string, () => string> = {
   // Email fields - will be generated consistently with name in generateMockData
-  email: () => faker.internet.email(),
+  email: () => getLocalizedFaker().internet.email(),
   
   // Name fields
-  name: () => faker.person.fullName(),
-  title: () => faker.lorem.sentence({ min: 3, max: 8 }),
+  name: () => getLocalizedFaker().person.fullName(),
+  title: () => getLocalizedFaker().lorem.sentence({ min: 3, max: 8 }),
   
   // Content fields
-  content: () => faker.lorem.paragraphs({ min: 1, max: 3 }),
-  bio: () => faker.lorem.paragraph({ min: 10, max: 50 }),
+  content: () => getLocalizedFaker().lorem.paragraphs({ min: 1, max: 3 }),
+  bio: () => getLocalizedFaker().lorem.paragraph({ min: 10, max: 50 }),
   
   // ID fields (should be UUIDs)
-  id: () => faker.string.uuid(),
+  id: () => getLocalizedFaker().string.uuid(),
   
   // Foreign key fields (should be UUIDs)
-  userId: () => faker.string.uuid(),
-  authorId: () => faker.string.uuid(),
-  postId: () => faker.string.uuid(),
-  companyId: () => faker.string.uuid(),
+  userId: () => getLocalizedFaker().string.uuid(),
+  authorId: () => getLocalizedFaker().string.uuid(),
+  postId: () => getLocalizedFaker().string.uuid(),
+  companyId: () => getLocalizedFaker().string.uuid(),
 };
 
 // Type-based generators (fallback)
 const typeGenerators: Record<string, () => any> = {
-  String: () => faker.person.fullName(),
-  Int: () => faker.number.int({ min: 1, max: 100 }),
-  Float: () => faker.number.float({ min: 0, max: 100, fractionDigits: 2 }),
-  Boolean: () => faker.datatype.boolean(),
-  DateTime: () => faker.date.past().toISOString(),
+  String: () => getLocalizedFaker().person.fullName(),
+  Int: () => getLocalizedFaker().number.int({ min: 1, max: 100 }),
+  Float: () => getLocalizedFaker().number.float({ min: 0, max: 100, fractionDigits: 2 }),
+  Boolean: () => getLocalizedFaker().datatype.boolean(),
+  DateTime: () => getLocalizedFaker().date.past().toISOString(),
 };
 
 // Generate mock data for a field
@@ -53,7 +54,7 @@ export function generateField(fieldOrType: Field | string, fieldName: string | n
   
   // Handle ID fields
   if (isId) {
-    return faker.string.uuid();
+    return getLocalizedFaker().string.uuid();
   }
   
   // Handle field names first (more specific)

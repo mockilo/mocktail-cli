@@ -1,4 +1,5 @@
 import { faker } from '@faker-js/faker';
+import { getLocalizedFaker } from '../utils/localeManager';
 import { SchemaField } from '../schema-parsers/baseSchemaParser';
 
 export interface TypeGenerator {
@@ -104,29 +105,29 @@ export class ExtensibleTypeSystem {
     switch (baseType) {
       case 'string':
       case 'text':
-        return faker.lorem.words({ min: 1, max: 3 });
+        return getLocalizedFaker().lorem.words({ min: 1, max: 3 });
       case 'int':
       case 'integer':
       case 'number':
-        return faker.number.int({ min: 1, max: 1000 });
+        return getLocalizedFaker().number.int({ min: 1, max: 1000 });
       case 'float':
       case 'double':
       case 'decimal':
-        return faker.number.float({ min: 0, max: 1000, fractionDigits: 2 });
+        return getLocalizedFaker().number.float({ min: 0, max: 1000, fractionDigits: 2 });
       case 'boolean':
       case 'bool':
-        return faker.datatype.boolean();
+        return getLocalizedFaker().datatype.boolean();
       case 'date':
       case 'datetime':
       case 'timestamp':
-        return faker.date.past();
+        return getLocalizedFaker().date.past();
       case 'uuid':
       case 'guid':
-        return faker.string.uuid();
+        return getLocalizedFaker().string.uuid();
       case 'object':
         return {
-          key: faker.lorem.word(),
-          value: faker.lorem.sentence()
+          key: getLocalizedFaker().lorem.word(),
+          value: getLocalizedFaker().lorem.sentence()
         };
       case 'array':
         return [];
@@ -134,7 +135,7 @@ export class ExtensibleTypeSystem {
         return null;
       default:
         // If we don't recognize the type, generate a basic string
-        return faker.lorem.words({ min: 1, max: 3 });
+        return getLocalizedFaker().lorem.words({ min: 1, max: 3 });
     }
   }
 
@@ -150,11 +151,11 @@ export class ExtensibleTypeSystem {
         const lastName = context?.relatedFields?.['lastName'];
         
         if (firstName && lastName) {
-          return faker.internet.email({ firstName, lastName });
+          return getLocalizedFaker().internet.email({ firstName, lastName });
         } else if (firstName) {
-          return faker.internet.email({ firstName });
+          return getLocalizedFaker().internet.email({ firstName });
         }
-        return faker.internet.email();
+        return getLocalizedFaker().internet.email();
       }
     });
 
@@ -163,21 +164,21 @@ export class ExtensibleTypeSystem {
       name: 'name',
       patterns: ['name', 'fullname', 'username', 'displayname'],
       priority: 90,
-      generate: () => faker.person.fullName()
+      generate: () => getLocalizedFaker().person.fullName()
     });
 
     this.registerTypeGenerator({
       name: 'firstName',
       patterns: ['firstname', 'first_name', 'fname'],
       priority: 90,
-      generate: () => faker.person.firstName()
+      generate: () => getLocalizedFaker().person.firstName()
     });
 
     this.registerTypeGenerator({
       name: 'lastName',
       patterns: ['lastname', 'last_name', 'lname', 'surname'],
       priority: 90,
-      generate: () => faker.person.lastName()
+      generate: () => getLocalizedFaker().person.lastName()
     });
 
     // URL/Website generators
@@ -185,7 +186,7 @@ export class ExtensibleTypeSystem {
       name: 'url',
       patterns: ['url', 'website', 'homepage', 'link', /.*url.*/i],
       priority: 85,
-      generate: () => faker.internet.url()
+      generate: () => getLocalizedFaker().internet.url()
     });
 
     // Phone generators
@@ -193,7 +194,7 @@ export class ExtensibleTypeSystem {
       name: 'phone',
       patterns: ['phone', 'telephone', 'mobile', /.*phone.*/i],
       priority: 85,
-      generate: () => faker.phone.number()
+      generate: () => getLocalizedFaker().phone.number()
     });
 
     // Address generators
@@ -201,21 +202,21 @@ export class ExtensibleTypeSystem {
       name: 'address',
       patterns: ['address', 'street', 'location'],
       priority: 80,
-      generate: () => faker.location.streetAddress()
+      generate: () => getLocalizedFaker().location.streetAddress()
     });
 
     this.registerTypeGenerator({
       name: 'city',
       patterns: ['city', 'town'],
       priority: 80,
-      generate: () => faker.location.city()
+      generate: () => getLocalizedFaker().location.city()
     });
 
     this.registerTypeGenerator({
       name: 'country',
       patterns: ['country', 'nation'],
       priority: 80,
-      generate: () => faker.location.country()
+      generate: () => getLocalizedFaker().location.country()
     });
 
     // Content generators
@@ -223,21 +224,21 @@ export class ExtensibleTypeSystem {
       name: 'title',
       patterns: ['title', 'heading', 'subject'],
       priority: 75,
-      generate: () => faker.lorem.sentence({ min: 3, max: 8 })
+      generate: () => getLocalizedFaker().lorem.sentence({ min: 3, max: 8 })
     });
 
     this.registerTypeGenerator({
       name: 'description',
       patterns: ['description', 'desc', 'summary', 'bio'],
       priority: 75,
-      generate: () => faker.lorem.paragraph({ min: 1, max: 3 })
+      generate: () => getLocalizedFaker().lorem.paragraph({ min: 1, max: 3 })
     });
 
     this.registerTypeGenerator({
       name: 'content',
       patterns: ['content', 'body', 'text', 'message'],
       priority: 75,
-      generate: () => faker.lorem.paragraphs({ min: 1, max: 4 })
+      generate: () => getLocalizedFaker().lorem.paragraphs({ min: 1, max: 4 })
     });
 
     // ID generators
@@ -245,7 +246,7 @@ export class ExtensibleTypeSystem {
       name: 'id',
       patterns: ['id', '_id', /.*id$/i],
       priority: 95,
-      generate: () => faker.string.uuid()
+      generate: () => getLocalizedFaker().string.uuid()
     });
   }
 
@@ -259,70 +260,70 @@ export class ExtensibleTypeSystem {
         const lastName = context?.relatedFields?.['lastName'];
         
         if (firstName && lastName) {
-          return faker.internet.email({ firstName, lastName });
+          return getLocalizedFaker().internet.email({ firstName, lastName });
         }
-        return faker.internet.email();
+        return getLocalizedFaker().internet.email();
       }
     });
 
     this.registerFormatGenerator({
       format: 'uri',
       baseType: 'string',
-      generate: () => faker.internet.url()
+      generate: () => getLocalizedFaker().internet.url()
     });
 
     this.registerFormatGenerator({
       format: 'url',
       baseType: 'string',
-      generate: () => faker.internet.url()
+      generate: () => getLocalizedFaker().internet.url()
     });
 
     this.registerFormatGenerator({
       format: 'date',
       baseType: 'string',
-      generate: () => faker.date.past().toISOString().split('T')[0]
+      generate: () => getLocalizedFaker().date.past().toISOString().split('T')[0]
     });
 
     this.registerFormatGenerator({
       format: 'date-time',
       baseType: 'string',
-      generate: () => faker.date.past().toISOString()
+      generate: () => getLocalizedFaker().date.past().toISOString()
     });
 
     this.registerFormatGenerator({
       format: 'time',
       baseType: 'string',
-      generate: () => faker.date.recent().toTimeString().split(' ')[0]
+      generate: () => getLocalizedFaker().date.recent().toTimeString().split(' ')[0]
     });
 
     this.registerFormatGenerator({
       format: 'uuid',
       baseType: 'string',
-      generate: () => faker.string.uuid()
+      generate: () => getLocalizedFaker().string.uuid()
     });
 
     this.registerFormatGenerator({
       format: 'ipv4',
       baseType: 'string',
-      generate: () => faker.internet.ip()
+      generate: () => getLocalizedFaker().internet.ip()
     });
 
     this.registerFormatGenerator({
       format: 'ipv6',
       baseType: 'string',
-      generate: () => faker.internet.ipv6()
+      generate: () => getLocalizedFaker().internet.ipv6()
     });
 
     this.registerFormatGenerator({
       format: 'hostname',
       baseType: 'string',
-      generate: () => faker.internet.domainName()
+      generate: () => getLocalizedFaker().internet.domainName()
     });
 
     this.registerFormatGenerator({
       format: 'password',
       baseType: 'string',
-      generate: () => faker.internet.password({ length: 12 })
+      generate: () => getLocalizedFaker().internet.password({ length: 12 })
     });
   }
 
@@ -335,59 +336,59 @@ export class ExtensibleTypeSystem {
         const lastName = context?.relatedFields?.['lastName'];
         
         if (firstName && lastName) {
-          return faker.internet.email({ firstName, lastName });
+          return getLocalizedFaker().internet.email({ firstName, lastName });
         }
-        return faker.internet.email();
+        return getLocalizedFaker().internet.email();
       }
     });
 
     this.registerScalarGenerator({
       scalarName: 'URL',
-      generate: () => faker.internet.url()
+      generate: () => getLocalizedFaker().internet.url()
     });
 
     this.registerScalarGenerator({
       scalarName: 'JSON',
       generate: () => ({
-        key: faker.lorem.word(),
-        value: faker.lorem.sentence(),
-        timestamp: faker.date.recent().toISOString()
+        key: getLocalizedFaker().lorem.word(),
+        value: getLocalizedFaker().lorem.sentence(),
+        timestamp: getLocalizedFaker().date.recent().toISOString()
       })
     });
 
     this.registerScalarGenerator({
       scalarName: 'DateTime',
-      generate: () => faker.date.past().toISOString()
+      generate: () => getLocalizedFaker().date.past().toISOString()
     });
 
     this.registerScalarGenerator({
       scalarName: 'Date',
-      generate: () => faker.date.past().toISOString().split('T')[0]
+      generate: () => getLocalizedFaker().date.past().toISOString().split('T')[0]
     });
 
     this.registerScalarGenerator({
       scalarName: 'Time',
-      generate: () => faker.date.recent().toTimeString().split(' ')[0]
+      generate: () => getLocalizedFaker().date.recent().toTimeString().split(' ')[0]
     });
 
     this.registerScalarGenerator({
       scalarName: 'UUID',
-      generate: () => faker.string.uuid()
+      generate: () => getLocalizedFaker().string.uuid()
     });
 
     this.registerScalarGenerator({
       scalarName: 'PhoneNumber',
-      generate: () => faker.phone.number()
+      generate: () => getLocalizedFaker().phone.number()
     });
 
     this.registerScalarGenerator({
       scalarName: 'PostalCode',
-      generate: () => faker.location.zipCode()
+      generate: () => getLocalizedFaker().location.zipCode()
     });
 
     this.registerScalarGenerator({
       scalarName: 'CountryCode',
-      generate: () => faker.location.countryCode()
+      generate: () => getLocalizedFaker().location.countryCode()
     });
   }
 
@@ -403,12 +404,12 @@ export class ExtensibleTypeSystem {
           const lastName = context?.relatedFields?.['lastName'];
           
           if (firstName && lastName) {
-            return faker.internet.email({ firstName, lastName });
+            return getLocalizedFaker().internet.email({ firstName, lastName });
           } else if (firstName) {
-            return faker.internet.email({ firstName });
+            return getLocalizedFaker().internet.email({ firstName });
           }
         }
-        return faker.internet.email();
+        return getLocalizedFaker().internet.email();
       }
     });
   }

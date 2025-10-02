@@ -92,6 +92,7 @@ export interface GenerateCommandOptions {
   noLog?: boolean;
   seed?: boolean;
   seedValue?: string;
+  locale?: string;
   preset?: string;
   forceLogo?: boolean;
   batch?: boolean;

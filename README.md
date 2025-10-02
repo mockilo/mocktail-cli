@@ -11,9 +11,6 @@
 [![npm version](https://img.shields.io/npm/v/mocktail-cli.svg)](https://www.npmjs.com/package/mocktail-cli)
 ![License](https://img.shields.io/npm/l/mocktail-cli)
 ![Downloads](https://img.shields.io/npm/dt/mocktail-cli)
-![Node.js Version](https://img.shields.io/node/v/mocktail-cli)
-[![CI](https://github.com/mockilo/mocktail-cli/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/mockilo/mocktail-cli/actions/workflows/ci.yml)
-
 
 
 ---
@@ -96,6 +93,12 @@ Mocktail-CLI is the most comprehensive schema-aware CLI tool for generating real
 * **Built-in plugins** — Date generator, email generator, and custom validator plugins
 * **Plugin management** — Load, enable, disable, and configure plugins
 * **Hook system** — Execute code at various stages of generation
+
+### 🌍 Internationalization & Localization (v1.4.2+)
+* **Locale support** — Generate culturally appropriate data for different regions
+* **20+ supported locales** — English, Spanish, French, German, Japanese, Korean, Chinese, and more
+* **Locale-aware generation** — Names, addresses, phone numbers, and emails match the specified locale
+* **Easy locale switching** — Simple `--locale` flag to change data generation locale
 
 ### 🎨 UI/UX Improvements
 * **Enhanced output formatting** — Color-coded messages and structured information
@@ -317,6 +320,34 @@ mocktail-cli generate --schema complex-schema.graphql --count 3
 #   • Deferred 2 relations for later population
 ```
 
+### Locale Support (v1.4.2+)
+
+```bash
+# Generate Spanish mock data
+mocktail-cli generate --locale es --count 5
+# Output: Names like "María García", "José Luis Rodríguez"
+
+# Generate French mock data
+mocktail-cli generate --locale fr --count 5
+# Output: Names like "Pierre Dubois", "Marie Lefebvre"
+
+# Generate Japanese mock data
+mocktail-cli generate --locale ja --count 5
+# Output: Names like "田中太郎", "佐藤花子"
+
+# Generate German mock data with relations
+mocktail-cli generate --locale de --relations --count 10
+# Output: Names like "Hans Müller", "Anna Schmidt"
+```
+
+#### Supported Locales
+```
+en (English), es (Spanish), fr (French), de (German), it (Italian), 
+pt_BR (Portuguese Brazil), ja (Japanese), ko (Korean), zh_CN (Chinese Simplified), 
+ru (Russian), ar (Arabic), hi (Hindi), nl (Dutch), sv (Swedish), 
+da (Danish), no (Norwegian), fi (Finnish), pl (Polish), tr (Turkish), th (Thai)
+```
+
 ---
 
 ## CLI reference (examples)
@@ -334,6 +365,10 @@ mocktail-cli generate --format sql --out ./seeds
 
 # Use a preset for ecommerce data
 mocktail-cli generate --preset ecommerce --count 100
+
+# Generate locale-specific data
+mocktail-cli generate --locale es --count 20 --out ./spanish-data
+mocktail-cli generate --locale fr --relations --count 50
 ```
 
 ### Understanding --depth and --relations flags
@@ -386,6 +421,7 @@ mocktail-cli generate --depth 2 --no-nest --count 5
 | `--no-log` | | Suppress console logs during mock generation |
 | `--seed` | | Insert generated data into DB |
 | `--seed-value <number>` | | Seed value for reproducible data generation |
+| `--locale <locale>` | | Locale for generating culturally appropriate data (e.g., en, es, fr, ja) (default: en) |
 | `--preset <type>` | | Relation preset: blog, ecommerce, social |
 | `--force-logo` | | Force show the logo animation even if shown before |
 | `-h, --help` | | Display help with usage and examples |
@@ -609,6 +645,7 @@ How **Mocktail-CLI** compares with other schema-aware mock data tools:
 | **Plugin system**                           | ✅ **NEW**      | ❌ No       | ❌ No                | ❌ No             | ❌ No    |
 | **Better error messages**                   | ✅ **NEW**      | ❌ No       | ❌ No                | ❌ No             | ❌ No    |
 | **Large dataset support**                   | ✅ **NEW**      | ❌ No       | ❌ No                | ❌ No             | ❌ No    |
+| **Locale support (i18n)**                   | ✅ **NEW**      | ❌ No       | ❌ No                | ❌ No             | ⚠️ Manual |
 
 \* `faker-js` supports `faker.seed(...)` for deterministic values, but it is **not schema-aware** and **doesn’t handle relations automatically**.  
 
@@ -628,6 +665,7 @@ Takeaway:
   * **NEW in v1.3**: Enhanced UI/UX with progress tracking and better output
   * **NEW in v1.4**: Extensible type system with custom scalar support
   * **NEW in v1.4**: Advanced circular dependency resolution with smart strategies
+  * **NEW in v1.4.2**: Internationalization support with 20+ locales for culturally appropriate data
 
 ## Roadmap
 
@@ -636,6 +674,7 @@ Takeaway:
 * v1.2: ✅ Multi-schema support (Prisma, GraphQL, JSON Schema, OpenAPI)
 * v1.3: ✅ **Enhanced relation detection, performance optimization, plugin system, better error messages, UI/UX improvements**
 * v1.4: ✅ **Extensible type system (custom scalars, formats), advanced circular dependency resolution**
+* v1.4.2: ✅ **Internationalization support with 20+ locales for culturally appropriate data generation**
 * v1.5: 🚧 Integration with Mockilo for API mocking, seeding, and team workflows
 * v1.6: 🔮 Machine learning-powered relation detection and smart data generation
 * v1.7: 🔮 Advanced plugins ecosystem and web interface
