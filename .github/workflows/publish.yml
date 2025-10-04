@@ -5,6 +5,9 @@ on:
     branches:
       - main  # or your default branch
 
+permissions:
+  contents: write
+
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -62,7 +65,7 @@ jobs:
           git config --local user.name "GitHub Action"
           git add package.json package.scoped.json
           git diff --staged --quiet || git commit -m "Auto-patch version to $(node -p "require('./package.json').version")"
-          git push
+          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:main
 
       - name: Publish unscoped package (mocktail-cli)
         run: npm publish --access public
