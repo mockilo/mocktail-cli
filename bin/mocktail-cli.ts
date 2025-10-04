@@ -1214,6 +1214,7 @@ ${chalk.magenta('Options:')}
   ${chalk.green('--no-log')}               ${chalk.gray('Suppress console logs during mock generation')}
   ${chalk.green('--seed')}                 ${chalk.gray('Insert mock data into DB')}
   ${chalk.green('--seed-value <number>')}  ${chalk.gray('Seed value for reproducible data generation')}
+  ${chalk.green('--locale <locale>')}      ${chalk.gray('Locale for generating culturally appropriate data (e.g., en, es, fr, ja)')}
   ${chalk.green('--preset <type>')}        ${chalk.gray('Relation preset: blog, ecommerce, social')}
   ${chalk.green('--force-logo')}           ${chalk.gray('Force show the logo animation even if shown before')}
   ${chalk.green('-h, --help')}             ${chalk.gray('display help for command')}
