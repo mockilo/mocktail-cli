@@ -1,6 +1,6 @@
 {
     "name": "@mockilo/mocktail-cli",
-    "version": "1.4.1",
+    "version": "1.4.2",
     "description": "**Craft your data cocktail — realistic mock data, shaken not stirred.**",
     "main": "bin/mocktail-cli.ts",
     "type": "commonjs",
