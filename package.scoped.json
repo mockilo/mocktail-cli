@@ -1,6 +1,6 @@
 {
     "name": "@mockilo/mocktail-cli",
-    "version": "1.4.2",
+    "version": "1.4.5",
     "description": "**Craft your data cocktail — realistic mock data, shaken not stirred.**",
     "main": "bin/mocktail-cli.ts",
     "type": "commonjs",
@@ -35,7 +35,7 @@
       "NodeJS"
     ],
     "author": "kilopal",
-    "license": "BSL-1.1",
+    "license": "MIT",
     "dependencies": {
       "@faker-js/faker": "^9.9.0",
       "@prisma/client": "^6.13.0",
