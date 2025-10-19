@@ -10,8 +10,8 @@ test-schemas/
 **/*.test.ts
 **/*.spec.ts
 
-# Documentation (keep README.md)
-docs/
+# Documentation (included - you have great docs!)
+# docs/ - KEEPING DOCS!
 
 # Config files
 tsconfig.json
@@ -40,6 +40,7 @@ dist/
 # OS files
 .DS_Store
 Thumbs.db
+
 
 
 

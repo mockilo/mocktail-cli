@@ -8,7 +8,6 @@ import * as os from "os";
 import ora from "ora";
 import chalk from "chalk";
 import { spawn } from "child_process";
-import { faker } from '@faker-js/faker';
 import { writeMockDataToFile } from "../src/utils/writeMockDataToFile";
 import { generateMockData } from "../src/generators/generateMockData";
 import { SchemaRegistry } from "../src/schema-parsers/schemaRegistry";
@@ -17,7 +16,8 @@ import { performanceOptimizer } from "../src/utils/performanceOptimizer";
 import { pluginManager } from "../src/plugins/pluginManager";
 import { outputFormatter } from "../src/utils/outputFormatter";
 import { circularDependencyResolver } from "../src/utils/circularDependencyResolver";
-import { createLocalizedFaker, setGlobalLocale } from "../src/utils/localeManager";
+import { createLocalizedFaker, setGlobalLocale, setGlobalSeed } from "../src/utils/localeManager";
+import { relationPresets } from '../src/constants/relationPresets';
 // Logo
 import printMocktailLogo from '../src/printMocktailLogo';
 
@@ -39,15 +39,6 @@ import type {
   ChildProcess,
   OraSpinner
 } from '../src/types';
-
-// let formatToSQL: ((value: any, options?: { sqlMode?: boolean }) => string) | null = null;
-// let formatJoinTableSQL: ((modelName: string, records: Array<{ A: string; B: string }>) => string) | null = null;
-
-// try {
-//   const sqlFmt = require("../src/utils/formatToSQL");
-//   formatToSQL = sqlFmt.formatToSQL;
-//   formatJoinTableSQL = sqlFmt.formatJoinTableSQL;
-// } catch {}
 
 let loadMockConfig: ((path: string) => MockConfig) | null = null;
 try {
@@ -246,63 +237,6 @@ function autoDetectSchema(): { path: string; type: string } | null {
   
   return null;
 }
-
-// Advanced relation presets
-const relationPresets: RelationPresets = {
-  // Blog/Content Management
-  blog: {
-    User: {
-      posts: { count: { min: 1, max: 5 } },
-      comments: { count: { min: 0, max: 10 } }
-    },
-    Post: {
-      comments: { count: { min: 0, max: 15 } },
-      categories: { count: { min: 1, max: 3 } }
-    }
-  },
-  
-  // E-commerce
-  ecommerce: {
-    User: {
-      orders: { count: { min: 0, max: 8 } },
-      reviews: { count: { min: 0, max: 5 } }
-    },
-    Product: {
-      reviews: { count: { min: 0, max: 20 } },
-      categories: { count: { min: 1, max: 2 } }
-    }
-  },
-  
-  // Social Network
-  social: {
-    User: {
-      posts: { count: { min: 0, max: 10 } },
-      followers: { count: { min: 0, max: 50 } },
-      following: { count: { min: 0, max: 50 } }
-    }
-  }
-};
-
-// Custom relation generator
-// function generateCustomRelations(model: Model, preset: string, relationData: Record<string, any>): Record<string, any> {
-//   const presetConfig = relationPresets[preset as keyof RelationPresets];
-//   if (!presetConfig || !presetConfig[model.name]) {
-//     return relationData;
-//   }
-//   
-//   const customData = { ...relationData };
-//   const modelConfig = presetConfig[model.name];
-//   
-//   for (const [relationName, config] of Object.entries(modelConfig || {})) {
-//     if (config.count) {
-//       // Generate custom count for this relation
-//       const count = faker.number.int(config.count);
-//       // Apply custom logic here
-//     }
-//   }
-//   
-//   return customData;
-// }
 
 // GENERATE command
 const generateCommand = program
@@ -553,6 +487,19 @@ generateCommand.action(async (opts: GenerateCommandOptions) => {
         console.log(`🌍 Using locale: ${localeConfig.locale}`);
       }
 
+      // Set faker seed if provided (for reproducible data generation)
+      if (opts.seedValue) {
+        const seedValue = parseInt(opts.seedValue, 10);
+        if (isNaN(seedValue)) {
+          console.error("❌ --seed-value must be a valid integer.");
+          process.exit(1);
+        }
+        setGlobalSeed(seedValue);
+        if (!globalOpts.quiet && !opts.noLog) {
+          console.log(`🎲 Using seed value: ${seedValue}`);
+        }
+      }
+
       const seedDataByModel: Record<string, Record<string, any>[]> = {};
       if (!globalOpts.quiet && !opts.noLog) spinner.succeed("Order prepared. Starting data generation...");
 
@@ -569,6 +516,12 @@ generateCommand.action(async (opts: GenerateCommandOptions) => {
           preset: opts.preset || null
         });
         const rawRecords: Record<string, any>[] = rawGen.records;
+        
+        // Update performance metrics
+        if ((globalOpts as any).performanceMode) {
+          performanceOptimizer.updateMetrics(rawRecords.length, 0);
+        }
+        
         // Store raw records so downstream relations use plain values (not SQL-safe strings)
         generatedDataMap[model.name] = rawRecords;
 
@@ -885,27 +838,7 @@ generateCommand.action(async (opts: GenerateCommandOptions) => {
       }
 
       if (opts.seed) {
-        // Set faker seed if provided
-        if (opts.seedValue) {
-          const seedValue = parseInt(opts.seedValue, 10);
-          if (isNaN(seedValue)) {
-            console.error("❌ --seed-value must be a valid integer.");
-            process.exit(1);
-          }
-          faker.seed(seedValue);
-          if (!globalOpts.quiet && !opts.noLog) console.log(`🎲 Using seed value: ${seedValue}`);
-        }
-
-        // Set faker locale if provided
-        if (opts.locale) {
-          try {
-            // Modern faker.js v9+ uses locale-specific imports
-            // For now, we'll use the locale parameter in individual faker calls
-            if (!globalOpts.quiet && !opts.noLog) console.log(`🌍 Using locale: ${opts.locale}`);
-          } catch (error) {
-            console.warn(`⚠️ Locale '${opts.locale}' not supported, falling back to 'en'`);
-          }
-        }
+        // Seed and locale are already set above, so no need to set them again here
 
         // Write seed JSON into the Prisma project
         const prismaProject = path.resolve(path.dirname(schemaPath), "..");
@@ -969,6 +902,14 @@ generateCommand.action(async (opts: GenerateCommandOptions) => {
         if (seedCode === 0) {
           if (!globalOpts.quiet && !opts.noLog) console.log('🌱 Seeding complete!');
           if (!globalOpts.quiet && !opts.noLog) console.log("\n✅ Mock data generation completed.");
+          
+          // Display performance metrics if enabled
+          if ((globalOpts as any).performanceMode) {
+            performanceOptimizer.stopGeneration();
+            const report = performanceOptimizer.getPerformanceReport();
+            console.log('\n' + report);
+          }
+          
           process.exit(0);
         } else {
           console.error('❌ Seeding failed!');
@@ -976,6 +917,14 @@ generateCommand.action(async (opts: GenerateCommandOptions) => {
         }
       } else {
         if (!globalOpts.quiet && !opts.noLog) console.log("\n✅ Mock data generation completed.");
+        
+        // Display performance metrics if enabled
+        if ((globalOpts as any).performanceMode) {
+          performanceOptimizer.stopGeneration();
+          const report = performanceOptimizer.getPerformanceReport();
+          console.log('\n' + report);
+        }
+        
         process.exit(0);
       }
 

@@ -1,15 +1,8 @@
-import { generateField } from './baseGenerators';
-import { faker } from '@faker-js/faker';
+import { Model, GeneratedData, GenerateOptions, RelationPresets } from '../types';
 import { getLocalizedFaker } from '../utils/localeManager';
-// import { customAlphabet } from 'nanoid'; // Unused import
 import { extensibleTypeSystem, GenerationContext } from '../types/extensibleTypeSystem';
-import { circularDependencyResolver } from '../utils/circularDependencyResolver';
-import type { Model, GenerateOptions, GeneratedData, RelationPresets } from '../types';
-
-// const nanoid = customAlphabet(
-//   '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz',
-//   16
-// );
+import { generateField } from './baseGenerators';
+import { relationPresets } from '../constants/relationPresets';
 
 function chooseRandom<T>(arr: T[]): T | null {
   if (!Array.isArray(arr) || arr.length === 0) return null;
@@ -267,42 +260,6 @@ function safeValue(value: any, { sqlMode = false }: { sqlMode?: boolean } = {}):
   }
   return `'${JSON.stringify(value).replace(/'/g, "''")}'`;
 }
-
-// Advanced relation presets
-const relationPresets: RelationPresets = {
-  // Blog/Content Management
-  blog: {
-    User: {
-      posts: { count: { min: 1, max: 5 } },
-      comments: { count: { min: 0, max: 10 } }
-    },
-    Post: {
-      comments: { count: { min: 0, max: 15 } },
-      categories: { count: { min: 1, max: 3 } }
-    }
-  },
-  
-  // E-commerce
-  ecommerce: {
-    User: {
-      orders: { count: { min: 0, max: 8 } },
-      reviews: { count: { min: 0, max: 5 } }
-    },
-    Product: {
-      reviews: { count: { min: 0, max: 20 } },
-      categories: { count: { min: 1, max: 2 } }
-    }
-  },
-  
-  // Social Network
-  social: {
-    User: {
-      posts: { count: { min: 0, max: 10 } },
-      followers: { count: { min: 0, max: 50 } },
-      following: { count: { min: 0, max: 50 } }
-    }
-  }
-};
 
 // Custom relation generator
 function generateCustomRelations(model: Model, preset: string, relationData: Record<string, any>): Record<string, any> {

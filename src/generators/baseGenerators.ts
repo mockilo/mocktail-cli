@@ -1,4 +1,3 @@
-import { faker } from "@faker-js/faker";
 import { getLocalizedFaker } from '../utils/localeManager';
 import type { Field } from '../types';
 

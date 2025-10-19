@@ -50,36 +50,43 @@ export class GraphQLSchemaParser implements SchemaParser {
   private parseGraphQLSchema(content: string): SchemaModelsMap {
     const models: SchemaModelsMap = {};
     
-    // Parse type definitions
-    const typeRegex = /type\s+(\w+)\s*\{([\s\S]*?)\}/g;
-    let match: RegExpExecArray | null;
+    // Remove single-line comments to prevent regex issues
+    const cleanContent = content.replace(/#[^\n]*/g, '');
     
-    while ((match = typeRegex.exec(content)) !== null) {
-      const typeName = match[1];
-      const typeBody = match[2];
-      
-      if (typeName && typeBody) {
-        const fields = this.parseGraphQLFields(typeBody);
-        
-        models[typeName] = {
-          name: typeName,
-          fields,
-          modelLevelUniques: []
-        };
-      }
-    }
-
-    // Parse interface definitions
+    // Parse interface definitions first (before types)
     const interfaceRegex = /interface\s+(\w+)\s*\{([\s\S]*?)\}/g;
-    while ((match = interfaceRegex.exec(content)) !== null) {
-      const interfaceName = match[1];
-      const interfaceBody = match[2];
+    let interfaceMatch: RegExpExecArray | null;
+    
+    while ((interfaceMatch = interfaceRegex.exec(cleanContent)) !== null) {
+      const interfaceName = interfaceMatch[1];
+      const interfaceBody = interfaceMatch[2];
       
       if (interfaceName && interfaceBody) {
         const fields = this.parseGraphQLFields(interfaceBody);
         
         models[interfaceName] = {
           name: interfaceName,
+          fields,
+          modelLevelUniques: []
+        };
+      }
+    }
+    
+    // Parse type definitions (with optional directives and implements)
+    // Match: type TypeName [implements Interface] [@directive] { ... }
+    // Use non-greedy match [^{]*? to avoid capturing too much
+    const typeRegex = /type\s+(\w+)(?:[^{]*?)\{([\s\S]*?)\}/g;
+    let typeMatch: RegExpExecArray | null;
+    
+    while ((typeMatch = typeRegex.exec(cleanContent)) !== null) {
+      const typeName = typeMatch[1];
+      const typeBody = typeMatch[2];
+      
+      if (typeName && typeBody) {
+        const fields = this.parseGraphQLFields(typeBody);
+        
+        models[typeName] = {
+          name: typeName,
           fields,
           modelLevelUniques: []
         };
@@ -94,10 +101,11 @@ export class GraphQLSchemaParser implements SchemaParser {
     const lines = body.split('\n').map(l => l.trim()).filter(l => !!l && !l.startsWith('#'));
     
     for (const line of lines) {
-      // Skip comments and directives
-      if (line.startsWith('#') || line.startsWith('@')) continue;
+      // Skip comments and standalone directives
+      if (line.startsWith('#') || (line.startsWith('@') && !line.includes(':'))) continue;
       
-      // Parse field definition: fieldName: Type! or fieldName: [Type!]!
+      // Parse field definition: fieldName: Type! or fieldName: [Type!]! (with optional directives)
+      // Match field name and type, ignoring any directives after the type
       const fieldMatch = line.match(/^(\w+)\s*:\s*([A-Za-z0-9\[\]!]+)/);
       if (!fieldMatch) continue;
       
@@ -107,17 +115,29 @@ export class GraphQLSchemaParser implements SchemaParser {
       if (!fieldName || !fieldType) continue;
       
       // Parse type information
-      const isArray = fieldType.startsWith('[') && fieldType.endsWith(']');
+      let workingType = fieldType;
+      
+      // Check if the field itself is required (ends with !)
       const isRequired = fieldType.endsWith('!');
       const isOptional = !isRequired;
       
-      // Extract base type
-      let baseType = fieldType;
-      if (isArray) {
-        baseType = fieldType.slice(1, -1); // Remove []
-      }
+      // Remove outer ! if present
       if (isRequired) {
-        baseType = baseType.slice(0, -1); // Remove !
+        workingType = workingType.slice(0, -1);
+      }
+      
+      // Check if it's an array
+      const isArray = workingType.startsWith('[') && workingType.endsWith(']');
+      
+      // Extract base type
+      let baseType = workingType;
+      if (isArray) {
+        // Remove [ and ]
+        baseType = workingType.slice(1, -1);
+        // Remove inner ! if present (for [Type!] notation)
+        if (baseType.endsWith('!')) {
+          baseType = baseType.slice(0, -1);
+        }
       }
       
       // Determine if it's a scalar or relation

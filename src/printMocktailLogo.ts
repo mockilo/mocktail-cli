@@ -89,7 +89,7 @@ async function printMocktailLogo(): Promise<void> {
   console.log(chalk.hex('#00d8c9').bold('      MOCKTAIL') + chalk.hex('#8e44ad').italic('-CLI'));
   
   // Tagline typing with blinking cursor
-  await typeTagline('Prisma-aware Mock Data Generator CLI');
+  await typeTagline('Schema-aware Mock Data Generator CLI');
 }
 
 export default printMocktailLogo;

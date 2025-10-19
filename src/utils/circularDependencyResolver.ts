@@ -41,11 +41,9 @@ export interface ResolutionPlan {
 
 export class CircularDependencyResolver {
   private strategies: Map<string, CycleResolutionStrategy> = new Map();
-  private maxDepth: number = 10;
   private preferredStrategy: string = 'smart-break';
 
   constructor(options: { maxDepth?: number; preferredStrategy?: string } = {}) {
-    this.maxDepth = options.maxDepth || 10;
     this.preferredStrategy = options.preferredStrategy || 'smart-break';
     this.registerDefaultStrategies();
   }
@@ -202,7 +200,9 @@ export class CircularDependencyResolver {
   private determineCycleStrength(cycleNodes: string[], nodes: Map<string, DependencyNode>): 'weak' | 'strong' {
     // Check if any of the relationships in the cycle are optional
     for (let i = 0; i < cycleNodes.length - 1; i++) {
-      const fromNode = nodes.get(cycleNodes[i]);
+      const fromNodeName = cycleNodes[i];
+      if (!fromNodeName) continue;
+      const fromNode = nodes.get(fromNodeName);
       const toNodeName = cycleNodes[i + 1];
       
       if (fromNode) {
@@ -308,6 +308,7 @@ export class CircularDependencyResolver {
         for (let i = 0; i < cycle.nodes.length - 1; i++) {
           const fromName = cycle.nodes[i];
           const toName = cycle.nodes[i + 1];
+          if (!fromName || !toName) continue;
           const fromNode = nodes.get(fromName);
 
           if (fromNode) {
@@ -336,6 +337,7 @@ export class CircularDependencyResolver {
         if (breakPoints.length === 0) {
           const fromName = cycle.nodes[0];
           const toName = cycle.nodes[1];
+          if (!fromName || !toName) return { strategy: 'smart-break', breakPoints, generationOrder: cycle.nodes, deferredRelations };
           const fromNode = nodes.get(fromName);
 
           if (fromNode) {
@@ -375,6 +377,7 @@ export class CircularDependencyResolver {
         for (let i = 0; i < cycle.nodes.length - 1; i++) {
           const fromName = cycle.nodes[i];
           const toName = cycle.nodes[i + 1];
+          if (!fromName || !toName) continue;
           const fromNode = nodes.get(fromName);
 
           if (fromNode) {
@@ -416,6 +419,7 @@ export class CircularDependencyResolver {
         for (let i = 0; i < cycle.nodes.length - 1; i++) {
           const fromName = cycle.nodes[i];
           const toName = cycle.nodes[i + 1];
+          if (!fromName || !toName) continue;
           const fromNode = nodes.get(fromName);
 
           if (fromNode) {

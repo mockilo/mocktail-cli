@@ -168,7 +168,7 @@ function printMocktailLogo() {
                     // Branding
                     console.log(chalk_1.default.hex('#00d8c9').bold('      MOCKTAIL') + chalk_1.default.hex('#8e44ad').italic('-CLI'));
                     // Tagline typing with blinking cursor
-                    return [4 /*yield*/, typeTagline('Prisma-aware Mock Data Generator CLI')];
+                    return [4 /*yield*/, typeTagline('Schema-aware Mock Data Generator CLI')];
                 case 6:
                     // Tagline typing with blinking cursor
                     _b.sent();
