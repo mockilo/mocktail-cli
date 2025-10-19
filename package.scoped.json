@@ -1,88 +1,87 @@
 {
-    "name": "@mockilo/mocktail-cli",
-    "version": "1.4.5",
-    "description": "**Craft your data cocktail — realistic mock data, shaken not stirred.**",
-    "main": "bin/mocktail-cli.ts",
-    "type": "commonjs",
-    "scripts": {
-      "test": "jest",
-      "start": "tsx ./bin/mocktail-cli.ts",
-      "dev": "tsx ./bin/mocktail-cli.ts",
-      "lint": "echo \"No lint configured\"",
-      "audit:security": "npm audit"
-    },
-    "keywords": [
-      "mock",
-      "api",
-      "schema",
-      "faker",
-      "prisma",
-      "CLI",
-      "mocktail",
-      "mocktail-cli",
-      "mockilo",
-      "ORM",
-      "Prisma",
-      "prisma2",
-      "database",
-      "JavaScript",
-      "JS",
-      "TypeScript",
-      "TS",
-      "Node.js",
-      "Node",
-      "Nodejs",
-      "NodeJS"
-    ],
-    "author": "kilopal",
-    "license": "MIT",
-    "dependencies": {
-      "@faker-js/faker": "^9.9.0",
-      "@prisma/client": "^6.13.0",
-      "avsc": "^5.7.6",
-      "chalk": "^4.1.2",
-      "commander": "^14.0.0",
-      "graphql": "^16.11.0",
-      "joi": "^17.11.0",
-      "nanoid": "^5.1.5",
-      "ora": "^8.2.0",
-      "protobufjs": "^7.2.5",
-      "sql-parser": "^0.5.0",
-      "typescript": "^5.0.0",
-      "tsx": "^4.20.6",
-      "xml2js": "^0.6.2",
-      "yaml": "^2.8.1",
-      "yup": "^1.4.0",
-      "zod": "^3.22.4"
-    },
-    "publishConfig": {
-      "access": "public"
-    },
-    "bin": {
-      "mocktail-cli": "bin/mocktail-cli.js"
-    },
-    "engines": {
-      "node": ">=18.18.0"
-    },
-    "devDependencies": {
-      "@eslint/js": "^9.33.0",
-      "@types/node": "^20.0.0",
-      "@types/xml2js": "^0.4.14",
-      "eslint": "^9.33.0",
-      "globals": "^16.3.0",
-      "jest": "^30.0.5",
-      "ts-node": "^10.9.0"
-    },
-    "repository": {
-      "type": "git",
-      "url": "git+https://github.com/mockilo/mocktail-cli.git"
-    },
-    "bugs": {
-      "url": "https://github.com/mockilo/mocktail-cli/issues"
-    },
-    "homepage": "https://github.com/mockilo/mocktail-cli#readme",
-    "directories": {
-      "test": "tests"
-    }
+  "name": "@mockilo/mocktail-cli",
+  "version": "1.4.3-beta.1",
+  "description": "**Craft your data cocktail — realistic mock data, shaken not stirred.**",
+  "main": "bin/mocktail-cli.ts",
+  "type": "commonjs",
+  "scripts": {
+    "test": "jest",
+    "start": "tsx ./bin/mocktail-cli.ts",
+    "dev": "tsx ./bin/mocktail-cli.ts",
+    "lint": "echo \"No lint configured\"",
+    "audit:security": "npm audit"
+  },
+  "keywords": [
+    "mock",
+    "api",
+    "schema",
+    "faker",
+    "prisma",
+    "CLI",
+    "mocktail",
+    "mocktail-cli",
+    "mockilo",
+    "ORM",
+    "Prisma",
+    "prisma2",
+    "database",
+    "JavaScript",
+    "JS",
+    "TypeScript",
+    "TS",
+    "Node.js",
+    "Node",
+    "Nodejs",
+    "NodeJS"
+  ],
+  "author": "kilopal",
+  "license": "MIT",
+  "dependencies": {
+    "@faker-js/faker": "^9.9.0",
+    "@prisma/client": "^6.13.0",
+    "avsc": "^5.7.6",
+    "chalk": "^4.1.2",
+    "commander": "^14.0.0",
+    "graphql": "^16.11.0",
+    "joi": "^17.11.0",
+    "nanoid": "^5.1.5",
+    "ora": "^8.2.0",
+    "protobufjs": "^7.2.5",
+    "sql-parser": "^0.5.0",
+    "typescript": "^5.0.0",
+    "tsx": "^4.20.6",
+    "xml2js": "^0.6.2",
+    "yaml": "^2.8.1",
+    "yup": "^1.4.0",
+    "zod": "^3.22.4"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "bin": {
+    "mocktail-cli": "bin/mocktail-cli.js"
+  },
+  "engines": {
+    "node": ">=18.18.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.33.0",
+    "@types/node": "^20.0.0",
+    "@types/xml2js": "^0.4.14",
+    "eslint": "^9.33.0",
+    "globals": "^16.3.0",
+    "jest": "^30.0.5",
+    "ts-node": "^10.9.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mockilo/mocktail-cli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mockilo/mocktail-cli/issues"
+  },
+  "homepage": "https://github.com/mockilo/mocktail-cli#readme",
+  "directories": {
+    "test": "tests"
   }
-  
+}
