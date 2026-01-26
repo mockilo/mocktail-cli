@@ -703,5 +703,5 @@ We welcome PRs, bug reports, and feature ideas.
 * ☕🍹  Welcome to Mocktail CLI  🍹☕ 
 
 Order up! Your personal code barista is here.
-Serving fresh, Prisma-aware mock data, shaken not stirred.
+Serving fresh, Schema-aware mock data, shaken not stirred.
 
